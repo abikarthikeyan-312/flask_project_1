@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Existing Patterns{% endblock %}
+
+{% block content %}
+<h1>📋 Existing Patterns</h1>
+
+<div class="card">
+    <h3>Pattern Overview</h3>
+    <div class="table-card table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Total Marks</th>
+                    <th>Sections Breakdown</th>
+                    <th>Status</th> 
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pattern_views %}
+                <tr>
+                    <td><strong>{{ p.name }}</strong></td>
+                    <td>{{ p.total_marks }}</td>
+                    <td>
+                        <ul style="margin:0; padding-left:16px;">
+                            {% for s in p.sections %}
+                            <li>
+                                <strong>{{ s.section }}</strong> :
+                                {{ s.expression }}
+                                <small>({{ s.details }})</small><br>
+                                <em>{{ s.note }}</em>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                    <td>
+                        <span class="badge" style="background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;">
+                            Active
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align:center;">
+                        No patterns created yet
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <p>ℹ️ <b>Note:</b> Patterns are managed by the System Administrator. If a new pattern is required for your department, please contact the COE office.</p>
+</div>
+{% endblock %}

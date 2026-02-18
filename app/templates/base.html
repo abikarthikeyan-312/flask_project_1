@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GNC COE Panel{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    
+    <style>
+    /* CSS Variables */
+    :root {
+        --sidebar-width: 260px;
+        --sidebar-collapsed-width: 80px;
+        --sidebar-bg: #ffffff;
+        --sidebar-hover: #ae2f2f;
+        --accent-color: #dad2d2;
+        --menu-text: #0e0e0e;
+        --header-bg: #374151;
+        --transition-speed: 0.3s;
+    }
+
+    body {
+        background-color: #f3f4f6;
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        overflow-x: hidden;
+    }
+
+    .app-container {
+        display: flex;
+        min-height: 100vh;
+    }
+
+    /* --- SIDEBAR STYLING --- */
+    .sidebar {
+        width: var(--sidebar-width);
+        background: var(--sidebar-bg);
+        color: var(--accent-color);
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        height: 100vh;
+        z-index: 1000;
+        border-right: 1px solid #e5e7eb;
+        transition: width var(--transition-speed) ease;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    .sidebar.collapsed {
+        width: var(--sidebar-collapsed-width);
+    }
+
+    /* HEADER */
+    .sidebar-header {
+        padding: 1rem;
+        background: var(--header-bg);
+        border-bottom: 1px solid #4b5563;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 70px;
+        flex-shrink: 0;
+    }
+
+    .sidebar-header h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0;
+        transition: opacity 0.2s;
+        opacity: 1;
+    }
+    
+    .sidebar.collapsed .sidebar-header h2,
+    .sidebar.collapsed .user-info {
+        opacity: 0;
+        pointer-events: none;
+        display: none;
+    }
+
+    .user-info {
+        font-size: 0.75rem;
+        color: #d1d5db;
+        margin-top: 0.25rem;
+    }
+
+    /* TOGGLE BUTTON */
+    .toggle-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 5px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    .toggle-btn:hover { background: rgba(255,255,255,0.1); }
+
+    /* MENU */
+    .menu {
+        padding: 1rem 0.5rem;
+        flex-grow: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .menu-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        color: var(--menu-text);
+        text-decoration: none;
+        border-radius: 6px;
+        margin-bottom: 0.25rem;
+        transition: all 0.2s;
+        height: 45px;
+    }
+
+    .menu-item:hover {
+        background: var(--sidebar-hover);
+        color: #fff;
+    }
+    
+    .menu-item.active {
+        background: var(--header-bg);
+        color: #fff;
+    }
+
+    .menu-icon {
+        font-size: 1.2rem;
+        min-width: 30px;
+        text-align: center;
+        margin-right: 10px;
+    }
+
+    .sidebar.collapsed .menu-text {
+        display: none;
+    }
+    
+    .sidebar.collapsed .menu-item {
+        justify-content: center;
+        padding: 0.75rem 0;
+    }
+    
+    .sidebar.collapsed .menu-icon {
+        margin-right: 0;
+    }
+
+    /* LOGOUT SECTION */
+    .logout-section {
+        padding: 1rem;
+        border-top: 1px solid #e5e7eb;
+        background: var(--sidebar-bg);
+        flex-shrink: 0;
+    }
+
+    .btn-logout {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.6rem;
+        background: #111827;
+        color: #fff;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.75rem;
+        transition: 0.2s;
+    }
+
+    .sidebar.collapsed .btn-logout span { display: none; }
+    .sidebar.collapsed .btn-logout { padding: 0.75rem; }
+
+    /* CONTENT AREA */
+    .content {
+        flex: 1;
+        margin-left: var(--sidebar-width);
+        padding: 2rem;
+        background: #f9fafb;
+        transition: margin-left var(--transition-speed) ease;
+        min-width: 0;
+    }
+
+    .content.expanded {
+        margin-left: var(--sidebar-collapsed-width);
+    }
+
+    .hidden { display: none !important; }
+
+    /* --- CUSTOM MODAL STYLES (ADDED) --- */
+    .custom-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5); /* Dimmed background */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease-in-out;
+    }
+
+    .custom-modal.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .modal-content-styled {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 400px;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        transform: scale(0.95);
+        transition: transform 0.2s ease;
+    }
+
+    .custom-modal.active .modal-content-styled {
+        transform: scale(1);
+    }
+
+    .modal-title-custom {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 0.5rem;
+    }
+
+    .modal-desc-custom {
+        color: #6b7280;
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    /* Dark Button (Confirm) */
+    .btn-modal-confirm {
+        background-color: #1f2937;
+        color: white;
+        border: none;
+        padding: 0.6rem 2rem;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .btn-modal-confirm:hover { background-color: #111827; }
+
+    /* Light Button (Close) */
+    .btn-modal-cancel {
+        background-color: #e5e7eb;
+        color: #374151;
+        border: none;
+        padding: 0.6rem 2rem;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .btn-modal-cancel:hover { background-color: #d1d5db; }
+    </style>
+</head>
+<body class="{{ 'admin-context' if session.role == 'admin' else 'staff-context' }}">
+
+<div class="app-container">
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div id="headerContent">
+                <h2>{{ 'Admin Panel' if session.role == 'admin' else 'Staff Portal' }}</h2>
+                <p class="user-info">
+                   {{ session.username }} | <small>{{ session.role|capitalize }}</small>
+                </p>
+            </div>
+            <button class="toggle-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+                ☰
+            </button>
+        </div>
+
+        <nav class="menu">
+            {% if session.role == 'admin' %}
+                <a href="{{ url_for('admin.dashboard') }}" class="menu-item" title="Home">
+                    <span class="menu-icon">🏠</span> <span class="menu-text">Home</span>
+                </a>
+                <a href="{{ url_for('admin.manage_schools') }}" class="menu-item" title="Manage Schools">
+                    <span class="menu-icon">🏫</span> <span class="menu-text">Manage Schools</span>
+                </a>
+                <a href="{{ url_for('admin.manage_departments') }}" class="menu-item" title="Manage Departments">
+                    <span class="menu-icon">🎓</span> <span class="menu-text">Manage Departments</span>
+                </a>
+                <a href="{{ url_for('admin.manage_subjects') }}" class="menu-item" title="Manage Subjects">
+                    <span class="menu-icon">📘</span> <span class="menu-text">Manage Subjects</span>
+                </a>
+                <a href="{{ url_for('admin.manage_weightage') }}" class="menu-item" title="Subject Weightage">
+                    <span class="menu-icon">⚖️</span> <span class="menu-text">Subject Weightage</span>
+                </a>
+                <a href="{{ url_for('admin.manage_patterns') }}" class="menu-item" title="Manage Patterns">
+                    <span class="menu-icon">📝</span> <span class="menu-text">Manage Patterns</span>
+                </a>
+                <a href="{{ url_for('admin.manage_users') }}" class="menu-item" title="Manage Users">
+                    <span class="menu-icon">👥</span> <span class="menu-text">Manage Users</span>
+                </a>
+                <a href="{{ url_for('admin.all_generated_papers') }}" class="menu-item" title="Paper Archive">
+                    <span class="menu-icon">📂</span> <span class="menu-text">Paper Archive</span>
+                </a>
+                <a href="{{ url_for('admin.all_question_banks') }}" class="menu-item" title="Question Bank Archive">
+                    <span class="menu-icon">🗄️</span> <span class="menu-text">QB Archive</span>
+                </a>
+                <a href="{{ url_for('admin.all_questions') }}" class="menu-item" title="Master Archive">
+                    <span class="menu-icon">🗃️</span> <span class="menu-text">Master Archive</span>
+                </a>
+            {% elif session.role == 'staff' %}
+                <a href="{{ url_for('staff.staff_home') }}" class="menu-item" title="My Dashboard">
+                    <span class="menu-icon">🏠</span> <span class="menu-text">My Dashboard</span>
+                </a>
+                <a href="{{ url_for('staff.generate_paper_entry') }}" class="menu-item" title="Generate New Paper">
+                    <span class="menu-icon">➕</span> <span class="menu-text">Generate New Paper</span>
+                </a>
+                <a href="{{ url_for('staff.scrutiny_list') }}" class="menu-item" title="Scrutiny">
+                    <span class="menu-icon">🔍</span> <span class="menu-text">Scrutiny</span>
+                </a>
+                <a href="{{ url_for('staff.all_generated_papers') }}" class="menu-item" title="All Papers Archive">
+                    <span class="menu-icon">📂</span> <span class="menu-text">All Papers Archive</span>
+                </a>
+                <a href="{{ url_for('staff.view_question_items') }}" class="menu-item" title="Question Repository">
+                    <span class="menu-icon">🗂️</span> <span class="menu-text">Question Repository</span>
+                </a>
+                <a href="{{ url_for('staff.my_subjects') }}" class="menu-item" title="My Subjects">
+                    <span class="menu-icon">📚</span> <span class="menu-text">My Subjects</span>
+                </a>
+                <a href="{{ url_for('staff.view_weightage') }}" class="menu-item" title="My Weightages">
+                    <span class="menu-icon">⚖️</span> <span class="menu-text">My Weightages</span>
+                </a>
+                <a href="{{ url_for('staff.view_patterns') }}" class="menu-item" title="View Patterns">
+                    <span class="menu-icon">📝</span> <span class="menu-text">View Patterns</span>
+                </a>
+            {% endif %}
+        </nav>
+
+        <div class="logout-section">
+            <a href="#" onclick="confirmLogout(event)" class="btn-logout" title="Logout">
+                <span>LOGOUT</span>
+                <span class="menu-icon" style="margin-left: 5px;">🚪</span>
+            </a>
+        </div>
+    </aside>
+
+    <main class="content" id="mainContent">
+        <div class="container-fluid">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+        </div>
+
+        {% block content %}{% endblock %}
+    </main>
+
+</div>
+
+<div id="logoutModal" class="custom-modal">
+    <div class="modal-content-styled">
+        <div class="modal-title-custom">Confirm Logout</div>
+        <p class="modal-desc-custom">Are you sure you want to log out?</p>
+        
+        <div class="modal-actions">
+            <button class="btn-modal-confirm" onclick="proceedLogout()">Confirm</button>
+            <button class="btn-modal-cancel" onclick="closeLogoutModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    /* SIDEBAR TOGGLE LOGIC */
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('mainContent');
+        
+        sidebar.classList.toggle('collapsed');
+        content.classList.toggle('expanded');
+        
+        // Save state to local storage
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        localStorage.setItem('sidebarCollapsed', isCollapsed);
+    }
+
+    // Restore sidebar state on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed) {
+            document.getElementById('sidebar').classList.add('collapsed');
+            document.getElementById('mainContent').classList.add('expanded');
+        }
+    });
+
+    /* ✅ UPDATED: CUSTOM LOGOUT MODAL LOGIC */
+    
+    // 1. Triggered when clicking the sidebar Logout button
+    function confirmLogout(event) {
+        event.preventDefault(); // Stop immediate navigation
+        document.getElementById('logoutModal').classList.add('active'); // Show custom modal
+    }
+
+    // 2. Triggered by the "Close" button inside modal
+    function closeLogoutModal() {
+        document.getElementById('logoutModal').classList.remove('active'); // Hide modal
+    }
+
+    // 3. Triggered by the "Confirm" button inside modal
+    function proceedLogout() {
+        window.location.href = "{{ url_for('auth.logout') }}";
+    }
+
+    // 4. Close modal if clicking outside the white box (the dark background)
+    document.getElementById('logoutModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeLogoutModal();
+        }
+    });
+</script>
+
+</body>
+</html>

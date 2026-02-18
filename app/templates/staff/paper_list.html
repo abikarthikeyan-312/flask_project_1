@@ -1,0 +1,44 @@
+#app/templates/staff/paper_list.html
+<h2>
+  Question Papers – {{ subject_version.subject.name }}
+  (Sem {{ subject_version.semester }}, Batch {{ subject_version.batch }})
+</h2>
+
+<button onclick="location.href='{{ url_for('staff.generate_paper', subject_version_id=subject_version.id) }}'">
+  ➕ Generate New Paper
+</button>
+
+<table>
+  <thead>
+    <tr>
+      <th>Paper Code</th>
+      <th>Type</th>
+      <th>Status</th>
+      <th>Created At</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for paper in papers %}
+    <tr>
+      <td>{{ paper.paper_code }}</td>
+      <td>{{ paper.paper_type }}</td>
+      <td>
+        {% if paper.status == "ACTIVE" %}
+          ⭐ ACTIVE
+        {% else %}
+          {{ paper.status }}
+        {% endif %}
+      </td>
+      <td>{{ paper.created_at.strftime("%d-%m-%Y %H:%M") }}</td>
+      <td>
+        {% if paper.status != "ACTIVE" %}
+          <a href="{{ url_for('staff.edit_paper', paper_id=paper.id) }}">✏ Edit</a>
+          <a href="{{ url_for('staff.activate_paper', paper_id=paper.id) }}">⭐ Activate</a>
+        {% endif %}
+        <a href="{{ url_for('staff.download_paper', paper_id=paper.id) }}">📄 Download</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    @media print {
+        .no-print, .sticky-top, .btn, header, footer, aside { display: none !important; }
+        .container { border: none !important; box-shadow: none !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+    }
+
+    /* Modal Overlay */
+    .modal {
+        display: none; 
+        position: fixed; 
+        z-index: 1050; 
+        left: 0;
+        top: 0;
+        width: 100%; 
+        height: 100%; 
+        overflow: auto; 
+        background-color: rgba(0,0,0,0.5); 
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal.show {
+        display: flex !important;
+    }
+
+    /* Modal Content */
+    .modal-content {
+        background-color: #fff;
+        padding: 25px;
+        border: 1px solid #888;
+        width: 500px; 
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        text-align: center;
+    }
+
+    .modal-header {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #333;
+    }
+
+    .modal-body {
+        font-size: 1rem;
+        color: #555;
+        margin-bottom: 25px;
+        text-align: left; 
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end; 
+        gap: 10px;
+    }
+    
+    textarea.form-control {
+        resize: vertical; 
+        font-size: 0.95rem;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 sticky-top bg-light p-3 shadow-sm rounded">
+    <div>
+        <h4 class="mb-0 fw-bold">
+            {% if paper.status == 'GENERATED' %}
+                ⏳ Draft Review
+            {% elif paper.status == 'UNDER_SCRUTINY' %}
+                🔍 Scrutiny Mode
+            {% else %}
+                📄 Paper View
+            {% endif %}
+            <span class="text-muted ms-2 fs-6">({{ paper.paper_code }})</span>
+        </h4>
+        <span class="badge {{ 'bg-warning text-dark' if paper.status == 'GENERATED' else 'bg-info text-dark' }}">
+            Status: {{ paper.status }}
+        </span>
+    </div>
+</div>
+
+<div class="container bg-white p-5 shadow-lg border position-relative" style="min-height: 800px; max-width: 210mm; margin: auto;">
+    
+    <div class="text-center mb-4 border-bottom pb-3">
+        <h5 class="fw-bold mb-1">GURU NANAK COLLEGE (AUTONOMOUS), CHENNAI – 42</h5>
+        <h6 class="fw-bold mb-1">
+            {% if paper.subject_version.semester % 2 == 0 %}APRIL{% else %}NOV{% endif %} {{ paper.created_at.year }}
+        </h6>
+        <h6 class="fw-bold text-uppercase">{{ paper.subject_version.subject.name }} ({{ paper.subject_version.subject.code }})</h6>
+        <div class="d-flex justify-content-between mt-3 fw-bold small">
+            <span>TIME: 3 HRS.</span>
+            <span>MAX. MARKS: {{ paper.subject_version.pattern.total_marks }}</span>
+        </div>
+    </div>
+
+    <table class="table table-bordered align-middle">
+        <thead class="table-light text-center align-middle">
+            <tr>
+                <th style="width: 5%">Q.No</th>
+                <th style="width: 55%">Question</th>
+                <th style="width: 8%">Marks</th>
+                <th style="width: 8%">CO</th>
+                <th style="width: 8%">K-Level</th>
+                <th style="width: 16%" class="no-print bg-light">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set global_qno = namespace(value=1) %}
+            
+            {% for section_name, section_items in items|sort(attribute='section')|groupby('section') %}
+                
+                <tr class="table-secondary">
+                    <td colspan="6" class="text-center fw-bold py-2">
+                        SECTION - {{ section_name }}
+                    </td>
+                </tr>
+
+                {% for item in section_items|sort(attribute='order_index') %}
+                <tr id="row_{{ item.id }}" class="{% if item.is_duplicate_flag %}table-danger{% endif %} {% if item.source_type == 'MANUAL' %}table-warning{% endif %}">
+                    
+                    <td class="text-center fw-bold">{{ global_qno.value }}</td>
+                    
+                    <td>
+                        <div id="text_{{ item.id }}" class="question-text">{{ item.display_text }}</div>
+                        
+                        <div id="dup_badge_{{ item.id }}" class="text-danger small fw-bold mt-1" style="display: {{ 'block' if item.is_duplicate_flag else 'none' }};">
+                            🚩 DUPLICATE FLAGGED
+                        </div>
+                        
+                        <div id="manual_badge_{{ item.id }}" class="text-dark small fw-bold mt-1" style="display: {{ 'block' if item.source_type == 'MANUAL' else 'none' }};">
+                            ✏️ EDITED
+                        </div>
+                    </td>
+                    
+                    <td class="text-center">{{ item.marks }}</td>
+                    <td class="text-center">CO{{ item.unit }}</td>
+                    
+                    <td class="text-center" id="klevel_{{ item.id }}">{{ item.k_level if item.k_level else '-' }}</td>
+                    
+                    <td class="text-center no-print">
+                        <div class="btn-group btn-group-sm">
+                            {% if paper.status in ['GENERATED', 'UNDER_SCRUTINY'] %}
+                            <button class="btn btn-outline-primary" onclick="loadSwap({{ item.id }})" title="Swap Question">Swap</button>
+                            {% endif %}
+
+                            {% if paper.status == 'UNDER_SCRUTINY' %}
+                            <button class="btn btn-outline-secondary" onclick="triggerEdit({{ item.id }})" title="Edit Text">Edit</button>
+                            <button class="btn btn-outline-danger" onclick="toggleDuplicate({{ item.id }})" title="Flag Duplicate">Flag Duplicate</button>
+                            {% endif %}
+                        </div>
+
+                        <div id="swap_container_{{ item.id }}" class="mt-1" style="display:none;">
+                            <select id="swap_{{ item.id }}" class="form-select form-select-sm" onchange="triggerSwap({{ item.id }}, this.value)"></select>
+                            <button class="btn btn-sm btn-link text-danger p-0" onclick="cancelSwap({{ item.id }})">Cancel</button>
+                        </div>
+                    </td>
+                </tr>
+                {% set global_qno.value = global_qno.value + 1 %}
+                {% endfor %}
+
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="mt-5 pt-3 border-top no-print d-flex gap-2">
+        <form action="{{ url_for('staff.download_question_paper', paper_id=paper.id) }}" method="get">
+            <button type="submit" class="btn btn-secondary shadow-sm">
+                📄 Download Student Copy
+            </button>
+        </form>
+
+        <form action="{{ url_for('staff.download_official_question_paper', paper_id=paper.id) }}" method="get">
+            <button type="submit" class="btn btn-secondary shadow-sm fw-bold">
+                🎓 Download Official Copy
+            </button>
+        </form>
+    </div>
+    
+    <div>
+        {% if paper.status == "UNDER_SCRUTINY" %}
+            <form id="activateForm" action="{{ url_for('staff.activate_paper_route', paper_id=paper.id) }}" method="POST">
+                <button type="button" class="btn btn-success fw-bold border-dark shadow-sm" onclick="triggerActivate()">
+                    🚀 Finalize & Activate (Cannot Edit After)
+                </button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<div id="activateModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header text-danger">⚠️ Final Confirmation</div>
+        <div class="modal-body text-center">
+            Are you sure you want to <strong>Finalize and Activate</strong> this paper?
+            <br><br>
+            <span class="text-danger">Once activated, you <strong>CANNOT</strong> make any further edits or swaps.</span>
+        </div>
+        <div class="modal-footer justify-content-center">
+            <button type="button" class="btn btn-success fw-bold" onclick="confirmActivate()">Yes, Activate Paper</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('activateModal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="swapModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header text-primary">🔄 Confirm Swap</div>
+        <div class="modal-body">
+            <p>Are you sure you want to replace this question with the selected alternative?</p>
+            <div class="alert alert-light border small text-muted">
+                This will replace the current text and K-Level. The previous question will be returned to the bank.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="btnConfirmSwap" class="btn btn-primary fw-bold" onclick="confirmSwap()">Yes, Swap Question</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('swapModal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header text-dark">✏️ Edit Question Text</div>
+        <div class="modal-body">
+            <label class="form-label fw-bold small">Modify the question below:</label>
+            <textarea id="editTextInput" class="form-control" rows="5"></textarea>
+            <div class="text-muted small mt-2">
+                *Changes will be flagged as "EDITED" on the review screen.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="btnConfirmEdit" class="btn btn-success fw-bold" onclick="confirmEdit()">Save Changes</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+// --- GLOBAL STATE FOR MODALS ---
+let pendingSwapItem = null;
+let pendingSwapBankId = null;
+let pendingEditItem = null;
+
+// --- MODAL HELPERS ---
+function openModal(id) {
+    document.getElementById(id).classList.add("show");
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove("show");
+    // Reset state on close
+    if(id === 'swapModal') {
+        // Reset dropdown selection if cancelled
+        if(pendingSwapItem) {
+            const sel = document.getElementById("swap_" + pendingSwapItem);
+            if(sel) sel.value = sel.options[0].value; 
+        }
+        pendingSwapItem = null;
+        pendingSwapBankId = null;
+    }
+    if(id === 'editModal') {
+        pendingEditItem = null;
+    }
+}
+
+// Window click to close modals
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.classList.remove("show");
+    }
+}
+
+// --- 1. ACTIVATION LOGIC ---
+function triggerActivate() {
+    openModal("activateModal");
+}
+
+function confirmActivate() {
+    document.getElementById("activateForm").submit();
+}
+
+
+// --- 2. SWAP LOGIC ---
+
+function loadSwap(itemId){
+  const btn = document.querySelector(`button[onclick="loadSwap(${itemId})"]`);
+  const originalText = btn.innerHTML;
+  btn.innerHTML = "⏳";
+  btn.disabled = true;
+
+  fetch(`/staff/ajax/swap-candidates?paper_item_id=${itemId}`)
+    .then(r=>r.json())
+    .then(list=>{
+      const container = document.getElementById("swap_container_" + itemId);
+      const sel = document.getElementById("swap_" + itemId);
+      
+      sel.innerHTML = "<option selected disabled value=''>Select replacement...</option>";
+      if(list.length === 0) sel.innerHTML += "<option disabled>No alternatives found</option>";
+      
+      list.forEach(q=>{
+          let shortText = q.text.length > 50 ? q.text.substring(0, 50) + "..." : q.text;
+          sel.innerHTML += `<option value="${q.id}">${shortText}</option>`;
+      });
+
+      container.style.display = "block";
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    });
+}
+
+function cancelSwap(itemId) {
+    document.getElementById("swap_container_" + itemId).style.display = "none";
+}
+
+function triggerSwap(itemId, bankId){
+    if(!bankId || bankId === '') return;
+    pendingSwapItem = itemId;
+    pendingSwapBankId = bankId;
+    openModal("swapModal");
+}
+
+function confirmSwap() {
+    if(!pendingSwapItem || !pendingSwapBankId) return;
+
+    // UI Feedback
+    const btn = document.getElementById("btnConfirmSwap");
+    const originalText = btn.innerText;
+    btn.innerText = "Swapping...";
+    btn.disabled = true;
+
+    const itemId = pendingSwapItem;
+    const bankId = pendingSwapBankId;
+
+    fetch("/staff/ajax/swap-question",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ paper_item_id:itemId, new_bank_item_id:bankId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if(data.success) {
+            // UPDATE DOM
+            document.getElementById("text_" + itemId).innerText = data.new_text;
+            document.getElementById("klevel_" + itemId).innerText = data.new_k_level;
+            
+            // Clean up UI
+            document.getElementById("dup_badge_" + itemId).style.display = "none";
+            document.getElementById("manual_badge_" + itemId).style.display = "none";
+            document.getElementById("row_" + itemId).className = ""; 
+            
+            cancelSwap(itemId);
+        } else {
+            alert("Error: " + data.error);
+        }
+        closeModal("swapModal");
+        
+        // Reset Button
+        btn.innerText = originalText;
+        btn.disabled = false;
+    });
+}
+
+
+// --- 3. EDIT LOGIC ---
+
+function triggerEdit(itemId) {
+    const textElem = document.getElementById("text_" + itemId);
+    const currentText = textElem.innerText.trim();
+    
+    pendingEditItem = itemId;
+    document.getElementById("editTextInput").value = currentText;
+    
+    openModal("editModal");
+}
+
+function confirmEdit() {
+    if(!pendingEditItem) return;
+    
+    const itemId = pendingEditItem;
+    const newText = document.getElementById("editTextInput").value.trim();
+    const currentText = document.getElementById("text_" + itemId).innerText.trim();
+
+    // UI Feedback
+    const btn = document.getElementById("btnConfirmEdit");
+    const originalText = btn.innerText;
+    
+    // Only fetch if text actually changed
+    if (newText !== "" && newText !== currentText) {
+        btn.innerText = "Saving...";
+        btn.disabled = true;
+
+        fetch("/staff/ajax/edit-question", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ paper_item_id: itemId, new_text: newText })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if(data.success) {
+                // UPDATE DOM
+                document.getElementById("text_" + itemId).innerText = newText;
+                document.getElementById("manual_badge_" + itemId).style.display = "block";
+                document.getElementById("row_" + itemId).classList.add("table-warning");
+            } else {
+                alert("Error: " + data.error);
+            }
+            closeModal("editModal");
+            
+            // Reset Button
+            btn.innerText = originalText;
+            btn.disabled = false;
+        });
+    } else {
+        // No change made, just close
+        closeModal("editModal");
+    }
+}
+
+
+// --- 4. DUPLICATE LOGIC (Unchanged) ---
+function toggleDuplicate(itemId) {
+    const row = document.getElementById("row_" + itemId);
+    const isCurrentlyDuplicate = row.classList.contains("table-danger");
+    const newStatus = !isCurrentlyDuplicate; 
+
+    fetch("/staff/ajax/mark-duplicate", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ paper_item_id: itemId, is_duplicate: newStatus })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if(data.success) {
+            const badge = document.getElementById("dup_badge_" + itemId);
+            if(newStatus) {
+                row.classList.add("table-danger");
+                badge.style.display = "block";
+            } else {
+                row.classList.remove("table-danger");
+                badge.style.display = "none";
+            }
+        } else {
+            alert("Error: " + data.error);
+        }
+    });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3 class="fw-bold mb-3">Generate Question Paper</h3>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow-sm p-3">
+            <h6 class="fw-bold mb-3">Subject Filters</h6>
+
+            <label class="form-label">Department</label>
+            <select id="dept" class="form-select mb-2">
+                <option value="">Select Department</option>
+            </select>
+
+            <label class="form-label">Batch</label>
+            <select id="batch" class="form-select mb-2" disabled>
+                <option value="">Select Batch</option>
+            </select>
+
+            <label class="form-label">Semester</label>
+            <select id="sem" class="form-select mb-2" disabled>
+                <option value="">Select Semester</option>
+            </select>
+
+            <label class="form-label">Subject</label>
+            <select id="subject" class="form-select mb-3" disabled>
+                <option value="">Select Subject</option>
+            </select>
+        </div>
+    </div> 
+
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <b>Weightage Preview</b>
+                <span id="patternName" class="badge bg-secondary">Pattern: —</span>
+            </div>
+
+            <div class="card-body p-0">
+                <table class="table weightage-table text-center mb-0">
+                    <thead>
+                        <tr>
+                            <th class="unit-col">Unit</th>
+                            <th class="sec-a">Section A</th>
+                            <th class="sec-b">Section B</th>
+                            <th class="sec-c">Section C</th>
+                            <th class="total-col">Total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="gridBody">
+                        <tr>
+                            <td colspan="5" class="text-muted py-4">
+                                Select subject to preview weightage
+                            </td>
+                        </tr>
+                    </tbody>
+
+                    <tfoot>
+                        <tr class="totals-row bg-light fw-bold">
+                            <td>Total</td>
+                            <td id="totA">0</td>
+                            <td id="totB">0</td>
+                            <td id="totC">0</td>
+                            <td id="grand">0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr>
+
+<div class="card shadow-sm mt-4" id="generationForm" style="display:none;">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">📄 Paper Configuration</h5>
+    </div>
+    <div class="card-body">
+        <form id="generatePaperForm" action="{{ url_for('staff.generate_question_paper') }}">
+            
+            <input type="hidden" name="subject_version_id" id="form_subject_id">
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Paper Code (e.g., MST-1)</label>
+                    <input type="text" class="form-control" name="paper_code" required>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Paper Type</label>
+                    <select class="form-select" name="paper_type">
+                        <option value="NORMAL">Normal Exam</option>
+                        <option value="SUPPLEMENTARY">Supplementary</option>
+                        <option value="REVALUATION">Re-evaluation</option>
+                    </select>
+                </div>
+
+                <div class="col-md-12">
+                    <label class="form-label fw-bold">Question Source</label>
+                    <select class="form-select" name="source_mode" id="sourceModeSelect" onchange="toggleSourceMode()">
+                        <option value="default" selected>Use Default Question Bank</option>
+                        <option value="upload">Upload New Question Bank</option>
+                    </select>
+                    <div id="defaultBankAlert" class="alert alert-warning mt-2 p-2 small" style="display:none;">
+                        ⚠️ There is no Default Question Bank for this subject. Please choose "Upload New Question Bank".
+                    </div>
+                </div>
+
+                <div class="col-md-12" id="fileUploadContainer" style="display:none;">
+                    <label class="form-label">Upload Question Bank (Excel)</label>
+                    <input type="file" class="form-control" name="file" id="excelFile" accept=".xlsx, .xls">
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+                <button type="button" id="btnGenerate" class="btn btn-dark btn-lg">🚀 Generate Paper</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="generationModal" class="modal" tabindex="-1" role="dialog" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="genModalTitle">Notification</h5>
+            </div>
+            <div class="modal-body" id="genModalMessage">
+                </div>
+            <div class="modal-footer">
+                <button type="button" id="genModalConfirmBtn" class="btn btn-primary" style="display:none;">Confirm</button>
+                <button type="button" class="btn btn-secondary" onclick="closeGenerationModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("Script Loaded - Initializing Page");
+
+    // --- DOM ELEMENTS ---
+    const dept = document.getElementById("dept");
+    const batch = document.getElementById("batch");
+    const sem = document.getElementById("sem");
+    const subject = document.getElementById("subject");
+    const grid = document.getElementById("gridBody");
+    const btnGenerate = document.getElementById("btnGenerate");
+
+    // --- 1. FILTER LOGIC (DROPDOWNS) ---
+    
+    // Initial Load: Departments
+    fetch("/staff/ajax/departments")
+        .then(r => r.json())
+        .then(list => {
+            dept.innerHTML = `<option value="">Select Department</option>`;
+            list.forEach(d => dept.innerHTML += `<option value="${d.id}">${d.name}</option>`);
+        })
+        .catch(err => console.error("Error loading depts:", err));
+
+    // Department Change -> Load Batches
+    dept.onchange = () => {
+        resetFilters(["batch", "sem", "subject"]);
+        hideGenerationForm(); 
+        if(dept.value) {
+            fetch(`/staff/ajax/batches?department_id=${dept.value}`)
+                .then(r => r.json())
+                .then(list => fillSelect(batch, list))
+                .catch(err => console.error("Error loading batches:", err));
+        }
+    };
+
+    // Batch Change -> Load Semesters
+    batch.onchange = () => {
+        resetFilters(["sem", "subject"]);
+        hideGenerationForm();
+        if(batch.value) {
+            fetch(`/staff/ajax/semesters?department_id=${dept.value}&batch=${batch.value}`)
+                .then(r => r.json())
+                .then(list => fillSelect(sem, list))
+                .catch(err => console.error("Error loading semesters:", err));
+        }
+    };
+
+    // Semester Change -> Load Subjects
+    sem.onchange = () => {
+        resetFilters(["subject"]);
+        hideGenerationForm();
+        if(sem.value) {
+            fetch(`/staff/ajax/subjects?department_id=${dept.value}&batch=${batch.value}&semester=${sem.value}`)
+                .then(r => r.json())
+                .then(list => {
+                    subject.innerHTML = `<option value="">Select Subject</option>`;
+                    if(list && list.length > 0) {
+                        list.forEach(s => subject.innerHTML += `<option value="${s.id}">${s.name} (${s.code})</option>`);
+                        subject.disabled = false;
+                    }
+                })
+                .catch(err => console.error("Error loading subjects:", err));
+        }
+    };
+
+    // Subject Change -> Load Preview & Config
+    subject.onchange = () => {
+        if (!subject.value) {
+            hideGenerationForm();
+            return;
+        }
+        loadWeightagePreview(subject.value);
+        checkDefaultBank(subject.value);
+    };
+
+    // --- 2. GENERATE BUTTON LOGIC ---
+    if(btnGenerate){
+        btnGenerate.addEventListener("click", function(e) {
+            e.preventDefault(); 
+            initiateGeneration();
+        });
+    }
+
+    function initiateGeneration() {
+        const form = document.getElementById('generatePaperForm');
+        const paperCodeInput = form.querySelector('input[name="paper_code"]');
+        const sourceModeSelect = document.getElementById('sourceModeSelect');
+        const excelFileInput = document.getElementById('excelFile');
+
+        const paperCode = paperCodeInput ? paperCodeInput.value.trim() : "";
+        const sourceMode = sourceModeSelect ? sourceModeSelect.value : "";
+        const fileCount = excelFileInput ? excelFileInput.files.length : 0;
+
+        // Validation
+        if (!paperCode) {
+            openModal("Please enter a Paper Code (e.g., MST-1).", "Missing Input");
+            return;
+        }
+
+        if (sourceMode === 'upload' && fileCount === 0) {
+            openModal("Please select an Excel file to upload.", "File Missing");
+            return;
+        }
+
+        // Confirmation
+        openModal(`Generate paper <b>"${paperCode}"</b>?`, "Confirm Generation", function() {
+            submitGenerationForm(form);
+        });
+    }
+
+    function submitGenerationForm(form) {
+        const formData = new FormData(form);
+        const btn = document.getElementById("btnGenerate");
+        const originalText = btn.innerHTML;
+        
+        btn.innerHTML = '⚙️ Generating...';
+        btn.disabled = true;
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                return response.json().then(data => {
+                    if (data.valid === false) {
+                        // Validation Errors
+                        let errorHtml = '<div class="alert alert-danger"><ul class="mb-0 text-start">';
+                        data.errors.forEach(err => {
+                            errorHtml += `<li><strong>${err.type}:</strong> ${err.message}</li>`;
+                        });
+                        errorHtml += '</ul></div>';
+                        openModal(errorHtml, "Validation Failed");
+                        resetBtn(btn, originalText);
+                    } else if (data.redirect_url) {
+                        // Success Redirect (JSON)
+                        window.location.href = data.redirect_url;
+                    }
+                });
+            } else {
+                // Success Redirect (Standard)
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    window.location.reload();
+                }
+            }
+        })
+        .catch(err => {
+            console.error("Fetch Error:", err);
+            openModal("System Error: " + err, "Error");
+            resetBtn(btn, originalText);
+        });
+    }
+
+    function resetBtn(btn, text) {
+        btn.innerHTML = text;
+        btn.disabled = false;
+    }
+
+    // --- 3. HELPERS ---
+    
+    // Global function for the HTML onchange attribute
+    window.toggleSourceMode = function() {
+        const modeSelect = document.getElementById("sourceModeSelect");
+        const fileContainer = document.getElementById("fileUploadContainer");
+        const alertBox = document.getElementById("defaultBankAlert");
+        const subjectId = document.getElementById("form_subject_id").value;
+
+        if (!modeSelect) return;
+
+        if (modeSelect.value === "upload") {
+            fileContainer.style.display = "block";
+            alertBox.style.display = "none";
+        } else {
+            fileContainer.style.display = "none";
+            if(subjectId) {
+                fetch(`/staff/ajax/check-default-bank?subject_version_id=${subjectId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.exists) {
+                        alertBox.style.display = "block";
+                        alertBox.innerText = "⚠️ No Default Bank found. Please Upload.";
+                    }
+                });
+            }
+        }
+    };
+
+    function loadWeightagePreview(subjectId) {
+        fetch(`/staff/ajax/subject-weightage-preview?subject_version_id=${subjectId}`)
+            .then(r => r.json())
+            .then(d => {
+                document.getElementById("patternName").innerText = "Pattern: " + d.pattern.name;
+                let a = 0, b = 0, c = 0, g = 0;
+                grid.innerHTML = "";
+                if(d.weightage && d.weightage.length > 0) {
+                    d.weightage.forEach(w => {
+                        const t = w.A + w.B + w.C;
+                        a += w.A; b += w.B; c += w.C; g += t;
+                        grid.innerHTML += `<tr><td>Unit ${w.unit}</td><td>${w.A}</td><td>${w.B}</td><td>${w.C}</td><td>${t}</td></tr>`;
+                    });
+                } else {
+                     grid.innerHTML = `<tr><td colspan="5" class="text-muted">No weightage defined</td></tr>`;
+                }
+                document.getElementById("totA").innerText = a;
+                document.getElementById("totB").innerText = b;
+                document.getElementById("totC").innerText = c;
+                document.getElementById("grand").innerText = g;
+            })
+            .catch(err => console.error(err));
+    }
+
+    function checkDefaultBank(subjectId) {
+        const genForm = document.getElementById("generationForm");
+        const formSubjectId = document.getElementById("form_subject_id");
+        if(genForm) genForm.style.display = "block";
+        if(formSubjectId) formSubjectId.value = subjectId;
+
+        fetch(`/staff/ajax/check-default-bank?subject_version_id=${subjectId}`)
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById("sourceModeSelect");
+                const alertBox = document.getElementById("defaultBankAlert");
+                if (data.exists) {
+                    select.value = "default";
+                    alertBox.style.display = "none";
+                } else {
+                    select.value = "upload";
+                    alertBox.style.display = "block";
+                    alertBox.innerText = "ℹ️ No Default Question Bank found. Please upload a new one.";
+                    alertBox.style.display = "block";
+                }
+                toggleSourceMode();
+            });
+    }
+
+    function hideGenerationForm() {
+        const genForm = document.getElementById("generationForm");
+        if(genForm) genForm.style.display = "none";
+        if(grid) grid.innerHTML = `<tr><td colspan="5" class="text-muted py-4">Select subject to preview weightage</td></tr>`;
+        const pName = document.getElementById("patternName");
+        if(pName) pName.innerText = "Pattern: —";
+    }
+
+    function fillSelect(sel, list) {
+        sel.innerHTML = `<option value="">Select</option>`;
+        if(Array.isArray(list)) {
+            list.forEach(v => sel.innerHTML += `<option value="${v}">${v}</option>`);
+            sel.disabled = false;
+        }
+    }
+
+    function resetFilters(ids) {
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) { el.innerHTML = `<option value="">Select</option>`; el.disabled = true; }
+        });
+    }
+
+    // --- 4. MODAL LOGIC (Renamed for Safety) ---
+    const modal = document.getElementById("generationModal");
+    const modalTitle = document.getElementById("genModalTitle");
+    const modalMessage = document.getElementById("genModalMessage");
+    const confirmBtn = document.getElementById("genModalConfirmBtn");
+    let modalConfirmAction = null;
+
+    window.openModal = function(message, title="Notification", confirmAction=null) {
+        if(!modal) return;
+        modalTitle.innerText = title;
+        modalMessage.innerHTML = message;
+        
+        modal.style.display = "block";
+        modal.classList.add("show");
+
+        modalConfirmAction = confirmAction;
+
+        if (confirmAction) {
+            confirmBtn.style.display = "block";
+        } else {
+            confirmBtn.style.display = "none";
+        }
+    };
+
+    window.closeGenerationModal = function() {
+        modal.style.display = "none";
+        modal.classList.remove("show");
+        modalConfirmAction = null;
+    };
+
+    if(confirmBtn){
+        confirmBtn.onclick = function () {
+            if (modalConfirmAction) {
+                modalConfirmAction();
+                closeGenerationModal();
+            }
+        };
+    }
+});
+</script>
+{% endblock %}

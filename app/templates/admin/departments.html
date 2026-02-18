@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Manage Departments{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-dark">Manage Departments</h2>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold">Add Department</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.manage_departments') }}" 
+                          id="addDeptForm" onsubmit="handleAdd(event)">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Department Name</label>
+                            <input type="text" name="name" class="form-control" placeholder="e.g. M.C.A" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Department Code</label>
+                            <input type="text" name="code" class="form-control" placeholder="e.g. MCA" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Level</label>
+                            <select name="level" class="form-select" required>
+                                <option value="">Select Level</option>
+                                <option value="UG">UG</option>
+                                <option value="PG">PG</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">School</label>
+                            <select name="school_id" class="form-select" required>
+                                <option value="">Select School</option>
+                                {% for school in schools %}
+                                <option value="{{ school.id }}">{{ school.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-dark w-100">Add</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3 border-bottom-0">
+                    <h5 class="mb-0 fw-bold text-danger">🗑 Delete Department</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('admin.remove_department') }}" method="POST" 
+                          id="deleteDeptForm" onsubmit="handleDelete(event)">
+                        <div class="mb-3">
+                            <select name="dept_id" id="deleteDeptSelect" class="form-select" required>
+                                <option value="">Select Department to Delete</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }} ({{ dept.school.name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-dark w-100">Delete Department</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold">Existing Departments</h5>
+                    <div class="input-group" style="width: 250px;">
+                        <span class="input-group-text bg-white border-end-0">🔍</span>
+                        <input type="text" id="deptSearch" class="form-control border-start-0" placeholder="Search Departments" onkeyup="filterTable()">
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 600px;">
+                        <table class="table table-hover align-middle mb-0" id="deptTable">
+                            <thead class="bg-light sticky-top">
+                                <tr>
+                                    <th class="ps-4">Code</th>
+                                    <th>Name</th>
+                                    <th>School</th>
+                                    <th>Level</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dept in departments %}
+                                <tr>
+                                    <td class="ps-4 fw-bold text-secondary">{{ dept.code }}</td>
+                                    <td class="fw-bold">{{ dept.name }}</td>
+                                    <td class="text-muted small">{{ dept.school.name }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ dept.level }}</span></td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-center py-4 text-muted">No departments found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white py-3">
+                    <a href="{{ url_for('admin.download_departments_csv') }}" class="btn btn-dark btn-sm">⬇ Download CSV</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="appModal" class="modal hidden">
+    <div class="modal-content">
+        <p id="modalMessage" style="margin-bottom: 20px; font-size: 1.1em;"></p>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button id="modalConfirmBtn" class="danger-btn hidden">Confirm</button>
+            <button onclick="closeModal()" style="padding: 8px 16px;">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Search Filter Logic
+    function filterTable() {
+        const input = document.getElementById("deptSearch");
+        const filter = input.value.toUpperCase();
+        const table = document.getElementById("deptTable");
+        const tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) {
+            let tdName = tr[i].getElementsByTagName("td")[1];
+            let tdCode = tr[i].getElementsByTagName("td")[0];
+            if (tdName || tdCode) {
+                let txtValueName = tdName.textContent || tdName.innerText;
+                let txtValueCode = tdCode.textContent || tdCode.innerText;
+                if (txtValueName.toUpperCase().indexOf(filter) > -1 || txtValueCode.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    }
+
+    /* --- MODAL LOGIC --- */
+    function openModal(message, confirmAction = null) {
+        const modalMessage = document.getElementById("modalMessage");
+        const confirmBtn = document.getElementById("modalConfirmBtn");
+        const modal = document.getElementById("appModal");
+        
+        // Set message
+        modalMessage.innerHTML = message; // Use innerHTML to allow bold text
+        
+        // Show Modal
+        modal.classList.remove("hidden");
+
+        if (confirmAction && typeof confirmAction === "function") {
+            confirmBtn.classList.remove("hidden");
+            // Remove previous event listeners by cloning
+            const newBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+            
+            newBtn.onclick = function() {
+                confirmAction(); // Run the logic
+                closeModal();    // Close the modal
+            };
+        } else {
+            confirmBtn.classList.add("hidden");
+        }
+    }
+
+    function closeModal() {
+        document.getElementById("appModal").classList.add("hidden");
+    }
+
+    /* --- FORM HANDLERS --- */
+
+    function handleAdd(event) {
+        event.preventDefault(); // Stop default submit
+        // Note: HTML5 'required' attribute validation runs before this function fires.
+        openModal("Are you sure you want to <b>add</b> this new department?", function() {
+            document.getElementById("addDeptForm").submit();
+        });
+    }
+
+    function handleDelete(event) {
+        event.preventDefault(); // Stop default submit
+        
+        const select = document.getElementById("deleteDeptSelect");
+        const deptId = select.value;
+
+        if (!deptId) {
+            openModal("Please select a department to delete.");
+            return;
+        }
+
+        // ✅ 1. Check if department can be deleted
+        fetch(`/admin/departments/check-delete/${deptId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.can_delete) {
+                    // ❌ 2a. Validation Failed - Show backend error message
+                    openModal(`<span class="text-danger fw-bold">Cannot Delete:</span><br>${data.message}`);
+                } else {
+                    // ✅ 2b. Validation Passed - Show confirmation
+                    const deptName = select.options[select.selectedIndex].text;
+                    openModal(`Are you sure you want to <b>delete</b> the department:<br> <b>${deptName}</b>?<br><br>This cannot be undone.`, function() {
+                        document.getElementById("deleteDeptForm").submit();
+                    });
+                }
+            })
+            .catch(err => {
+                openModal("An error occurred while communicating with the server.");
+            });
+    }
+</script>
+{% endblock %}

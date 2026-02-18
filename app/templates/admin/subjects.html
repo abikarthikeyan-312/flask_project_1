@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block title %}Manage Subjects{% endblock %}
+
+{% block content %}
+<h1>📘 Manage Subjects</h1>
+
+<div class="grid-form-table">
+
+    <div class="card">
+        <h3>Add Subject</h3>
+        <form method="POST" id="subjectForm">
+            <label>School (to filter departments)</label>
+            <select id="schoolSelect">
+                <option value="">Select School</option>
+                {% for s in schools %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Department</label>
+            <select name="department_id" id="deptSelect" required disabled>
+                <option value="">Select Department</option>
+            </select>
+
+            <label>Subject Name</label>
+            <input name="name" id="subjectName" placeholder="eg. Artificial Intelligence" required>
+
+            <label>Subject Code</label>
+            <input name="code" id="subjectCode" placeholder="eg. 24PMCA308" required>
+
+            <label>Semester</label>
+            <input type="number" name="semester" id="semester" min="1" max="6" placeholder="e.g. 5" required>
+
+            <label>Batch</label>
+            <input type="number" name="batch" id="batch" min="2024" max="2050" placeholder="e.g. 2025" required>
+
+            <label>Pattern</label>
+            <select name="pattern_id" id="pattern_id" required>
+                <option value="">Select Pattern</option>
+                {% for p in patterns %}
+                    <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Grid Type</label>
+            <select name="grid_type_id" id="gridType" required>
+                <option value="">Select Grid Type</option>
+                {% for g in grid_types %}
+                    <option value="{{ g.id }}">{{ g.name }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" id="addBtn">
+                Add Subject
+            </button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Existing Subjects</h3>
+            <input type="text" id="subjectSearch" placeholder="🔍 Search by Code, Name, or Batch..." onkeyup="dynamicSearch()">
+        </div>
+
+        <div class="table-card table-scroll">
+            <table id="subjectTable">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Version</th>
+                        <th>Semester</th>
+                        <th>Batch</th>
+                        <th>Department</th>
+                        <th>Pattern</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in subjects %}
+                    <tr data-id="{{ s.id }}">
+                        <td>{{ s.subject.code }}</td>
+                        <td>{{ s.subject.name }}</td>
+                        <td>{{ s.version }}</td>
+                        <td>{{ s.semester }}</td>
+                        <td>{{ s.batch }}</td>
+                        <td>{{ s.department.name }}</td>
+                        <td>
+                            {% if s.pattern %}
+                                <strong>{{ s.pattern.name }}</strong>
+                            {% else %}
+                                <span style="color: gray;">No Pattern</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <a href="{{ url_for('admin.download_subjects_csv') }}">
+            <button type="button">⬇ Download CSV</button>
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <h3>🗑 Remove Subject</h3>
+    <label>Select Subject to Remove</label>
+    <select id="delete_subject_select">
+        <option value="">Select Subject...</option>
+        {% for s in subjects %}
+            <option value="{{ s.id }}" data-display="{{ s.subject.name }} ({{ s.subject.code }})">
+                {{ s.subject.name }} ({{ s.subject.code }}) - Batch {{ s.batch }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button type="button" class="danger-btn" onclick="triggerDelete('only_subject')">Delete Subject Only</button>
+        <button type="button" class="danger-btn" onclick="triggerDelete('both')">Delete Subject & Weightage</button>
+    </div>
+</div>
+
+<div id="appModal" class="modal hidden">
+    <div class="modal-content">
+        <p id="modalMessage"></p>
+        <div style="text-align: right; margin-top: 20px;">
+            <button type="button" id="modalConfirmBtn" class="danger-btn hidden">Confirm</button>
+            <button onclick="closeModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    /* =========================================
+       1. MODAL LOGIC (Preserved & Cleaned)
+       ========================================= */
+    let modalConfirmAction = null;
+    const modal = document.getElementById("appModal");
+    const modalMessage = document.getElementById("modalMessage");
+    const confirmBtn = document.getElementById("modalConfirmBtn");
+
+    window.openModal = function(message, confirmAction = null) {
+        modalMessage.innerText = message;
+        modal.classList.remove("hidden");
+        modalConfirmAction = confirmAction;
+        if (confirmAction) {
+            confirmBtn.classList.remove("hidden");
+        } else {
+            confirmBtn.classList.add("hidden");
+        }
+    }
+
+    window.closeModal = function() {
+        modal.classList.add("hidden");
+        modalConfirmAction = null;
+    }
+
+    confirmBtn.addEventListener("click", function () {
+        if (modalConfirmAction) {
+            const action = modalConfirmAction;
+            modalConfirmAction = null;
+            closeModal();
+            action();
+        }
+    });
+
+    /* =========================================
+       2. BUG FIX: DROPDOWN AUTO-INIT
+       ========================================= */
+    const schoolSelect = document.getElementById("schoolSelect");
+    const deptSelect = document.getElementById("deptSelect");
+
+    function loadDepartments(schoolId) {
+        if (!schoolId) {
+            deptSelect.innerHTML = "<option value=''>Select Department</option>";
+            deptSelect.disabled = true;
+            return;
+        }
+        
+        // Show loading state
+        deptSelect.innerHTML = "<option>Loading...</option>";
+        
+        fetch(`/admin/subjects/departments/${schoolId}`)
+            .then(res => res.json())
+            .then(data => {
+                deptSelect.innerHTML = "<option value=''>Select Department</option>";
+                data.forEach(d => {
+                    let opt = document.createElement("option");
+                    opt.value = d.id; 
+                    opt.textContent = d.name;
+                    deptSelect.appendChild(opt);
+                });
+                deptSelect.disabled = false;
+            })
+            .catch(err => {
+                console.error("Error loading departments:", err);
+                deptSelect.innerHTML = "<option>Error loading data</option>";
+            });
+    }
+
+    // Event Listener for Change
+    schoolSelect.addEventListener("change", function() {
+        loadDepartments(this.value);
+    });
+
+    // ✅ FIX: Check on Page Load (if browser autofills)
+    if (schoolSelect.value) {
+        loadDepartments(schoolSelect.value);
+    }
+
+    /* =========================================
+       3. OTHER UTILS
+       ========================================= */
+    
+    // Dynamic Search
+    window.dynamicSearch = function() {
+        let filter = document.getElementById("subjectSearch").value.toLowerCase();
+        let rows = document.querySelectorAll("#subjectTable tbody tr");
+        rows.forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
+        });
+    }
+
+    // Subject Creation Confirmation
+    document.getElementById("subjectForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const name = document.getElementById("subjectName").value;
+        const code = document.getElementById("subjectCode").value;
+        const dept = deptSelect.options[deptSelect.selectedIndex]?.text || "Unknown";
+        
+        const message = `Confirm creating Subject: ${name} (${code}) for ${dept}?`;
+        
+        openModal(message, () => {
+            // Use native submit to ensure page reload/redirect happens correctly
+            e.target.submit();
+        });
+    });
+
+});
+
+/* =========================================
+   4. BUG FIX: ROBUST DELETE FUNCTION
+   ========================================= */
+function triggerDelete(actionType) {
+    const select = document.getElementById("delete_subject_select");
+    const svId = select.value;
+    
+    if (!svId) return openModal("Please select a subject first.");
+
+    const display = select.options[select.selectedIndex].getAttribute("data-display");
+    let msg = actionType === 'both' ? `Delete ${display} AND weightage?` : `Delete ${display}?`;
+
+    openModal(msg, () => {
+        const formData = new FormData();
+        formData.append("subject_version_id", svId);
+        formData.append("action", actionType);
+
+        fetch("{{ url_for('admin.remove_subject') }}", { 
+            method: "POST", 
+            body: formData 
+        })
+        .then(res => {
+            // ✅ FIX: Check HTTP status before parsing JSON
+            if (!res.ok) {
+                return res.json().then(err => { throw new Error(err.message || 'Server Error'); });
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Remove row from table
+                document.querySelector(`tr[data-id="${svId}"]`)?.remove();
+                // Remove option from dropdown
+                select.remove(select.selectedIndex);
+                select.value = ""; // Reset select
+                openModal("Deleted successfully.");
+            } else {
+                openModal("Error: " + data.message);
+            }
+        })
+        .catch(err => {
+            // ✅ FIX: Handle Network/Parsing errors
+            console.error(err);
+            openModal("An unexpected error occurred: " + err.message);
+        });
+    });
+}
+</script>
+
+{% set msg = request.args.get('msg') %}
+{% if msg %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    window.openModal("{{ msg }}");
+});
+</script>
+{% endif %}
+{% endblock %}

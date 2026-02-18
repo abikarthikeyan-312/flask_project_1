@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}View Weightage{% endblock %}
+
+{% block content %}
+<h1>⚖️ Subject Weightage Distribution Overview</h1>
+
+<div class="card">
+    <h3>🔍 Search Filters</h3>
+    <form method="GET" action="{{ url_for('staff.view_weightage') }}" class="grid-filters">
+        <div>
+            <label>School</label>
+            <select name="school_id" onchange="this.form.submit()">
+                <option value="">Select School</option>
+                {% for s in schools %}
+                <option value="{{ s.id }}" {{ 'selected' if s.id == selected_school }}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label>Department</label>
+            <select name="department_id" onchange="this.form.submit()">
+                <option value="">All Departments</option>
+                {% for d in departments %}
+                <option value="{{ d.id }}" {{ 'selected' if d.id == selected_dept }}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label>Semester</label>
+            <select name="semester" onchange="this.form.submit()" {{ 'disabled' if not selected_dept }}>
+                <option value="">-- Select Semester --</option>
+                {% if available_semesters %}
+                    {% for sem in available_semesters %}
+                    <option value="{{ sem }}" {{ 'selected' if sem == selected_semester }}>
+                        Semester {{ sem }}
+                    </option>
+                    {% endfor %}
+                {% else %}
+                    <option value="">No data available</option>
+                {% endif %}
+            </select>
+        </div>
+
+        <div>
+            <label>Subject</label>
+            <select name="subject_version_id" onchange="this.form.submit()">
+                <option value="">-- Choose Subject --</option>
+                {% for s in subjects %}
+                <option value="{{ s.id }}" {{ 'selected' if s.id == selected_subject_id }}>
+                    {{ s.subject.code }} - {{ s.subject.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+    <div style="margin-top: 10px;">
+        <a href="{{ url_for('staff.view_weightage') }}" class="secondary-btn">Reset All Filters</a>
+    </div>
+</div>
+
+{% if subject_version %}
+<div class="card" style="margin-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3>Distribution Overview</h3>
+        📋 Pattern: {{ subject_version.pattern.name if subject_version.pattern else 'None Assigned' }}
+    </div>
+
+    <div class="table-card">
+        <table class="weightage-table">
+            <thead>
+                <tr>
+                    <th>Unit</th>
+                    <th>Section A</th>
+                    <th>Section B</th>
+                    <th>Section C</th>
+                    <th>Total Questions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for w in weightages %}
+                <tr>
+                    <td><b>{{ w.unit }}</b></td>
+                    <td>{{ w.sec_a_count }}</td>
+                    <td>{{ w.sec_b_count }}</td>
+                    <td>{{ w.sec_c_count }}</td>
+                    <td>{{ w.sec_a_count + w.sec_b_count + w.sec_c_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot style="background-color: var(--bg-color); font-weight: bold;">
+                <tr>
+                    <td>Aggregate Totals</td>
+                    <td>{{ weightages|sum(attribute='sec_a_count') }}</td>
+                    <td>{{ weightages|sum(attribute='sec_b_count') }}</td>
+                    <td>{{ weightages|sum(attribute='sec_c_count') }}</td>
+                    <td>
+                        {% set total = weightages|sum(attribute='sec_a_count') + weightages|sum(attribute='sec_b_count') + weightages|sum(attribute='sec_c_count') %}
+                        {{ total }}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

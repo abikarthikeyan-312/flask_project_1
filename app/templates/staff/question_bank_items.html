@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* ---------- PAGE LAYOUT ---------- */
+.repo-container{
+    height: calc(100vh - 170px);
+    display:flex;
+    flex-direction:column;
+}
+
+/* ---------- TABLE SCROLL AREA ---------- */
+.table-scroll{
+    flex:1;
+    overflow-y:auto;
+}
+
+/* custom scrollbar */
+.table-scroll::-webkit-scrollbar{
+    width:8px;
+}
+.table-scroll::-webkit-scrollbar-thumb{
+    background:#cfd4da;
+    border-radius:10px;
+}
+.table-scroll::-webkit-scrollbar-thumb:hover{
+    background:#adb5bd;
+}
+
+/* sticky header */
+thead th{
+    position:sticky;
+    top:0;
+    z-index:5;
+    background:white !important;
+}
+
+/* nicer table hover */
+.table-hover tbody tr:hover{
+    background:#f7fbff;
+    transition:.15s;
+}
+
+/* small badges */
+.badge-small{
+    font-size:.65rem;
+}
+</style>
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-3 border-bottom pb-2">
+
+    <div>
+        <h2>📚 Question Repository</h2>
+        <p>Master database of unique questions (No Duplicates).</p>
+    </div>
+
+    <form class="d-flex gap-2 flex-wrap justify-content-end" method="GET">
+
+        <select name="school_id" class="form-select form-select-sm bg-light fw-bold" style="width:140px;" onchange="this.form.submit()">
+            <option value="">🏫 All Schools</option>
+            {% for s in schools %}
+            <option value="{{ s.id }}" {% if sel_school == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="department_id" class="form-select form-select-sm bg-light fw-bold" style="width:150px;" onchange="this.form.submit()">
+            <option value="">🏢 All Depts</option>
+            {% for d in departments %}
+            <option value="{{ d.id }}" {% if sel_dept == d.id %}selected{% endif %}>{{ d.name }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="subject_version_id" class="form-select form-select-sm bg-light fw-bold" style="width:140px;" onchange="this.form.submit()">
+            <option value="">📘 All Subjects</option>
+            {% for sub in subjects %}
+            <option value="{{ sub.id }}" {% if sel_subject == sub.id %}selected{% endif %}>
+                {{ sub.subject.name }} ({{ sub.subject.code }})
+            </option>
+            {% endfor %}
+        </select>
+
+    </form>
+</div>
+
+<div class="card shadow-sm border-0 repo-container">
+
+    <div class="card-header bg-light p-2 border-bottom">
+
+        <form method="GET" class="d-flex gap-2 align-items-center flex-wrap">
+
+            <input type="hidden" name="school_id" value="{{ sel_school or '' }}">
+            <input type="hidden" name="department_id" value="{{ sel_dept or '' }}">
+            <input type="hidden" name="subject_version_id" value="{{ sel_subject or '' }}">
+
+            <span class="fw-bold text-muted small ms-2 me-1">FILTER:</span>
+
+            <select name="unit" class="form-select form-select-sm border-secondary" style="width:100px;" onchange="this.form.submit()">
+                <option value="">All Units</option>
+                {% for i in range(1,6) %}
+                <option value="{{ i }}" {% if sel_unit == i %}selected{% endif %}>Unit {{ i }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="section" class="form-select form-select-sm border-secondary" style="width:100px;" onchange="this.form.submit()">
+                <option value="">All Sec</option>
+                {% for sec in ['A','B','C'] %}
+                <option value="{{ sec }}" {% if sel_section == sec %}selected{% endif %}>Sec {{ sec }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="marks" class="form-select form-select-sm border-secondary" style="width:100px;" onchange="this.form.submit()">
+                <option value="">All Marks</option>
+                {% for m in [1,2,3,5,6,7,8,9,10,15,20] %}
+                <option value="{{ m }}" {% if sel_marks == m %}selected{% endif %}>{{ m }} Marks</option>
+                {% endfor %}
+            </select>
+
+            <select name="k_level" class="form-select form-select-sm border-secondary" style="width:110px;" onchange="this.form.submit()">
+                <option value="">All K-Levels</option>
+                {% for k in ['K1','K2','K3','K4','K5','K6'] %}
+                <option value="{{ k }}" {% if sel_klevel == k %}selected{% endif %}>{{ k }}</option>
+                {% endfor %}
+            </select>
+
+            <div class="ms-auto d-flex align-items-center gap-2">
+
+                {% if sel_unit or sel_section or sel_marks or sel_klevel %}
+                <a href="{{ url_for('staff.view_question_items',
+                        school_id=sel_school,
+                        department_id=sel_dept,
+                        subject_version_id=sel_subject) }}"
+                   class="btn btn-sm btn-outline-danger">
+                   ✖ Clear
+                </a>
+                {% endif %}
+
+                <span class="badge bg-dark">
+                    Unique Count: {{ total_count }}
+                </span>
+
+            </div>
+
+        </form>
+    </div>
+
+    <div class="table-scroll">
+
+        <table class="table table-bordered table-hover mb-0" style="font-size:.85rem;">
+
+            <thead class="align-middle">
+                <tr>
+                    <th style="width:60px;">ID</th>
+                    <th style="width:250px;">Subject</th>
+                    <th style="width:50px;">Unit</th>
+                    <th style="width:50px;">Section</th>
+                    <th style="width:50px;">Marks</th>
+                    <th style="width:70px;">K Level</th>
+                    <th>Question Text</th>
+                </tr>
+            </thead>
+
+            <tbody class="align-middle">
+
+                {% for item in items %}
+                <tr>
+
+                    <td class="text-center text-muted fw-bold">
+                        {{ item.id }}
+                    </td>
+
+                    <td class="text-center">
+                        <span class="fw-bold">
+                            {{ item.subject.name }} ({{ item.subject.code }})
+                        </span>
+                    </td>
+
+                    <td class="text-center fw-bold">{{ item.default_unit if item.default_unit else '-' }}</td>
+                    <td class="text-center fw-bold">{{ item.default_section if item.default_section else '-' }}</td>
+                    <td class="text-center">{{ item.default_marks if item.default_marks else '-' }}</td>
+
+                    <td class="text-center">
+                        {% if item.k_level %}
+                        <span class="badge bg-info text-dark badge-small">
+                            {{ item.k_level }}
+                        </span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-dark" style="min-width:350px; line-height:1.4;">
+                        {{ item.question_text }}
+                    </td>
+
+                </tr>
+
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted fw-bold">
+                        <div class="fs-4 mb-2">📭</div>
+                        No unique questions found matching these filters.
+                    </td>
+                </tr>
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <div class="card-footer bg-light py-1 text-center small text-muted border-top">
+        Showing {{ items|length }} unique records
+    </div>
+
+</div>
+
+{% endblock %}

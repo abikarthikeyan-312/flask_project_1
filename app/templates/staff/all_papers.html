@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* ---------- PAGE LAYOUT ---------- */
+.repo-container{
+    height: calc(100vh - 170px);
+    display:flex;
+    flex-direction:column;
+}
+
+/* ---------- TABLE SCROLL AREA ---------- */
+.table-scroll{
+    flex:1;
+    overflow-y:auto;
+}
+
+/* custom scrollbar */
+.table-scroll::-webkit-scrollbar{
+    width:8px;
+}
+.table-scroll::-webkit-scrollbar-thumb{
+    background:#cfd4da;
+    border-radius:10px;
+}
+.table-scroll::-webkit-scrollbar-thumb:hover{
+    background:#adb5bd;
+}
+
+/* sticky header */
+thead th{
+    position:sticky;
+    top:0;
+    z-index:5;
+    background:white !important;
+    box-shadow: 0 1px 0 #dee2e6;
+}
+
+/* nicer table hover */
+.table-hover tbody tr:hover{
+    background:#f7fbff;
+    transition:.15s;
+}
+
+/* Column Separators */
+.table-bordered > :not(caption) > * > * {
+    border-width: 1px;
+}
+</style>
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-3 border-bottom pb-2">
+    <div>
+        <h3 class="fw-bold m-0">🗂️ Paper Archive</h3>
+        <p class="text-muted small m-0">View and download all generated question papers.</p>
+    </div>
+
+    <form class="d-flex gap-2 flex-wrap justify-content-end" method="GET">
+        <select name="school_id" class="form-select form-select-sm bg-light fw-bold" style="width:140px;" onchange="this.form.submit()">
+            <option value="">🏫 All Schools</option>
+            {% for s in schools %}
+            <option value="{{ s.id }}" {% if sel_school == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="department_id" class="form-select form-select-sm bg-light fw-bold" style="width:150px;" onchange="this.form.submit()">
+            <option value="">🏢 All Depts</option>
+            {% for d in departments %}
+            <option value="{{ d.id }}" {% if sel_dept == d.id %}selected{% endif %}>{{ d.name }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="batch" class="form-select form-select-sm bg-light fw-bold" style="width:100px;" onchange="this.form.submit()">
+            <option value="">📅 Batch</option>
+            {% for b in batches %}
+            <option value="{{ b }}" {% if sel_batch == b %}selected{% endif %}>{{ b }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="subject_version_id" class="form-select form-select-sm bg-light fw-bold" style="width:140px;" onchange="this.form.submit()">
+            <option value="">📘 All Subjects</option>
+            {% for sub in subjects %}
+            <option value="{{ sub.id }}" {% if sel_subject == sub.id %}selected{% endif %}>
+                {{ sub.subject.code }}
+            </option>
+            {% endfor %}
+        </select>
+
+        {% if sel_school or sel_dept or sel_subject or sel_batch %}
+        <a href="{{ url_for('staff.all_generated_papers') }}" class="btn btn-sm btn-secondary fw-bold">✖</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card shadow-sm border-0 repo-container">
+
+    <div class="card-header bg-light p-2 border-bottom">
+        <form method="GET" class="d-flex gap-2 align-items-center flex-wrap">
+            <input type="hidden" name="school_id" value="{{ sel_school or '' }}">
+            <input type="hidden" name="department_id" value="{{ sel_dept or '' }}">
+            <input type="hidden" name="subject_version_id" value="{{ sel_subject or '' }}">
+            <input type="hidden" name="batch" value="{{ sel_batch or '' }}">
+
+            <span class="fw-bold text-muted small ms-2 me-1">FILTER:</span>
+
+            <select name="status" class="form-select form-select-sm border-secondary" style="width:130px;" onchange="this.form.submit()">
+                <option value="">All Status</option>
+                {% for s in ['GENERATED', 'UNDER_SCRUTINY', 'ACTIVE', 'ARCHIVED'] %}
+                <option value="{{ s }}" {% if sel_status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="paper_type" class="form-select form-select-sm border-secondary" style="width:130px;" onchange="this.form.submit()">
+                <option value="">All Types</option>
+                {% for t in ['NORMAL', 'SUPPLEMENTARY', 'REVALUATION'] %}
+                <option value="{{ t }}" {% if sel_type == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+
+            <div class="ms-auto">
+                <span class="badge bg-dark">Total: {{ total_count }}</span>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-scroll">
+        <table class="table table-bordered table-hover mb-0" style="font-size:.85rem;">
+            <thead class="align-middle text-center">
+                <tr>
+                    <th style="min-width:200px;">Subject Name (Code)</th>
+                    <th style="width:80px;">Batch</th>
+                    <th style="width:120px;">Paper Code</th>
+                    <th style="width:100px;">Type</th>
+                    <th style="width:120px;">Status</th>
+                    <th style="width:120px;">Created By</th>
+                    <th style="width:100px;">Last Modified</th>
+                    <th style="width:100px;">Official</th>
+                    <th style="width:100px;">Student</th>
+                </tr>
+            </thead>
+            <tbody class="align-middle">
+                {% for p in papers %}
+                <tr>
+                    <td>
+                        <div class="fw-bold text-dark">{{ p.subject_version.subject.name }}</div>
+                        <small class="text-muted">({{ p.subject_version.subject.code }})</small>
+                    </td>
+
+                    <td class="text-center fw-bold">{{ p.subject_version.batch }}</td>
+
+                    <td class="text-center fw-bold text-primary">{{ p.paper_code }}</td>
+
+                    <td class="text-center">
+                        <span class="badge bg-light text-dark border border-secondary">{{ p.paper_type }}</span>
+                    </td>
+
+                    <td class="text-center">
+                        {% if p.status == 'ACTIVE' %}
+                            <span class="badge bg-success">ACTIVE</span>
+                        {% elif p.status == 'UNDER_SCRUTINY' %}
+                            <span class="badge bg-warning text-dark">SCRUTINY</span>
+                        {% elif p.status == 'ARCHIVED' %}
+                            <span class="badge bg-secondary">ARCHIVED</span>
+                        {% else %}
+                            <span class="badge bg-danger">DRAFT</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-center">
+                        <span class="small text-muted">👤 {{ p.creator.username }}</span>
+                    </td>
+
+                    <td class="text-center small text-muted">
+                        {{ p.last_modified_at.strftime('%Y-%m-%d') }}
+                    </td>
+
+                    <td class="text-center">
+                        <a href="{{ url_for('staff.download_official_question_paper', paper_id=p.id) }}" 
+                           class="btn btn-sm btn-outline-success border-0 fw-bold" 
+                           title="Download Official Format">
+                           ⬇ Official
+                        </a>
+                    </td>
+
+                    <td class="text-center">
+                        <a href="{{ url_for('staff.download_question_paper', paper_id=p.id) }}" 
+                           class="btn btn-sm btn-outline-primary border-0 fw-bold" 
+                           title="Download Student/Draft Format">
+                           ⬇ Student
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="text-center py-5 text-muted fw-bold">
+                        No question papers found matching filters.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card-footer bg-light py-1 text-center small text-muted border-top">
+        Showing {{ papers|length }} records
+    </div>
+
+</div>
+
+{% endblock %}

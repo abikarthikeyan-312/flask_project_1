@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}Subject Weightage{% endblock %}
+
+{% block content %}
+<h1>⚖️ Subject Weightage</h1>
+<div class="grid-form-table">
+    <div class="card" style="max-width:400px;">
+        <h3>Select Subject</h3>
+        <form method="GET" class="filter-bar">
+            <label>Department</label>
+            <select name="department_id" onchange="this.form.submit()">
+                <option value="">All Departments</option>
+                {% for d in departments %}
+                    <option value="{{ d.id }}" {% if d.id == department_id %}selected{% endif %}>
+                        {{ d.name }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <label>Semester</label>
+            <select name="semester" onchange="this.form.submit()">
+                <option value="">All Semesters</option>
+                {% for sem in semesters %}
+                    <option value="{{ sem }}" {% if sem == semester %}selected{% endif %}>
+                        Sem {{ sem }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <label>Batch</label>
+            <select name="batch" onchange="this.form.submit()">
+                <option value="">All Batches</option>
+                {% for b in batches %}
+                    <option value="{{ b }}" {% if b == batch %}selected{% endif %}>
+                        {{ b }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <label>Subject</label>
+            <select name="subject_version_id" onchange="this.form.submit()">
+                <option value="">Select Subject</option>
+                {% for sv in subjects %}
+                    <option value="{{ sv.id }}" {% if sv.id == selected_subject_id %}selected{% endif %}>
+                        {{ sv.subject.code }} – {{ sv.subject.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3>Distribution Overview</h3>
+            <span class="badge info">
+                📋 Pattern: {{ subject_version.pattern.name if subject_version.pattern else 'None Assigned' }}
+            </span>
+        </div>
+        <div class="table-card table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>Section A</th>
+                        <th>Section B</th>
+                        <th>Section C</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in weightages %}
+                    <tr>
+                        <td>{{ w.unit }}</td>
+                        <td>{{ w.sec_a_count }}</td>
+                        <td>{{ w.sec_b_count }}</td>
+                        <td>{{ w.sec_c_count }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not weightages %}
+                    <tr>
+                        <td colspan="4" style="text-align:center;">
+                            No weightage defined yet
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if selected_subject_id %}
+<hr>
+<div class="grid-form-table">
+    <div class="card"> 
+        <h3>Add new weightage</h3>
+        {% set pattern_rules = subject_version.pattern.structure_json.get('sections', {}) if subject_version.pattern and subject_version.pattern.structure_json else {} %}
+        <form method="POST" id="saveWeightageForm" onsubmit="handleSave(event)"
+              data-req-a="{{ pattern_rules.get('A', {}).get('total', 0) }}"
+              data-req-b="{{ pattern_rules.get('B', {}).get('total', 0) }}"
+              data-req-c="{{ pattern_rules.get('C', {}).get('total', 0) }}">
+              
+            <input type="hidden" name="subject_version_id" value="{{ selected_subject_id }}">
+
+            <table style="width:100%; margin-bottom:10px;">
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>Sec A</th>
+                        <th>Sec B</th>
+                        <th>Sec C</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for unit in range(1, 6) %}
+                    {% set existing = weightages|selectattr("unit", "equalto", unit)|first %}
+                    <tr>
+                        <td>{{ unit }}</td>
+                        <td>
+                            <input type="number" name="sec_a_{{ unit }}" min="0" 
+                                class="count-input-a"
+                                value="{{ existing.sec_a_count if existing else 0 }}">
+                        </td>
+                        <td>
+                            <input type="number" name="sec_b_{{ unit }}" min="0" 
+                                class="count-input-b"
+                                value="{{ existing.sec_b_count if existing else 0 }}">
+                        </td>
+                        <td>
+                            <input type="number" name="sec_c_{{ unit }}" min="0" 
+                                class="count-input-c"
+                                value="{{ existing.sec_c_count if existing else 0 }}">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <button type="submit" class="primary-btn">Save Weightage</button>
+        </form>
+    </div>
+</div>
+<div>
+    <form method="POST" action="{{ url_for('admin.delete_weightage') }}" 
+          id="deleteWeightageForm" onsubmit="handleDelete(event)">
+        <input type="hidden" name="subject_version_id" value="{{ selected_subject_id }}">
+        <button type="submit" class="danger-btn">
+            🗑 Delete Weightage
+        </button>
+    </form>
+</div>
+{% endif %}
+
+<div id="appModal" class="modal hidden">
+    <div class="modal-content">
+        <p id="modalMessage" style="margin-bottom: 20px; font-size: 1.1em; white-space: pre-wrap;"></p>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button id="modalConfirmBtn" class="danger-btn hidden">Confirm</button>
+            <button onclick="closeModal()" style="padding: 8px 16px;">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* --- FIXED MODAL LOGIC --- */
+function openModal(message, confirmAction = null) {
+    const modalMessage = document.getElementById("modalMessage");
+    const confirmBtn = document.getElementById("modalConfirmBtn");
+    const modal = document.getElementById("appModal");
+    
+    // Set message
+    modalMessage.innerText = message;
+    
+    // Show Modal
+    modal.classList.remove("hidden");
+
+    if (confirmAction && typeof confirmAction === "function") {
+        confirmBtn.classList.remove("hidden");
+        // DIRECT BINDING: Assign the click function directly
+        confirmBtn.onclick = function() {
+            confirmAction(); // Run the save/delete logic
+            closeModal();    // Close the modal
+        };
+    } else {
+        confirmBtn.classList.add("hidden");
+        confirmBtn.onclick = null;
+    }
+}
+
+function closeModal() {
+    document.getElementById("appModal").classList.add("hidden");
+}
+
+/* --- HANDLER FUNCTIONS --- */
+
+function handleSave(event) {
+    event.preventDefault(); // Stop default submit
+    
+    // ✅ UPDATE 2: Client-Side Validation Logic
+    const form = document.getElementById("saveWeightageForm");
+
+    // 1. Get Requirements from Data Attributes
+    const reqA = parseInt(form.getAttribute("data-req-a")) || 0;
+    const reqB = parseInt(form.getAttribute("data-req-b")) || 0;
+    const reqC = parseInt(form.getAttribute("data-req-c")) || 0;
+
+    // 2. Calculate User Input Totals
+    let curA = 0, curB = 0, curC = 0;
+
+    // Use querySelectorAll to sum up inputs by class/name pattern
+    document.querySelectorAll('input[name^="sec_a_"]').forEach(el => curA += (parseInt(el.value) || 0));
+    document.querySelectorAll('input[name^="sec_b_"]').forEach(el => curB += (parseInt(el.value) || 0));
+    document.querySelectorAll('input[name^="sec_c_"]').forEach(el => curC += (parseInt(el.value) || 0));
+
+    // 3. Compare and Collect Errors
+    let errors = [];
+    if (curA !== reqA) errors.push(`• Section A: Pattern requires ${reqA}, but you entered ${curA}.`);
+    if (curB !== reqB) errors.push(`• Section B: Pattern requires ${reqB}, but you entered ${curB}.`);
+    if (curC !== reqC) errors.push(`• Section C: Pattern requires ${reqC}, but you entered ${curC}.`);
+
+    // 4. Show Appropriate Modal
+    if (errors.length > 0) {
+        // Validation Failed
+        openModal("⚠️ Validation Failed:\n\n" + errors.join("\n"));
+    } else {
+        // Validation Passed -> Show Confirmation
+        openModal("Are you sure you want to save these weightage settings?", function() {
+            form.submit();
+        });
+    }
+}
+
+function handleDelete(event) {
+    event.preventDefault(); 
+    openModal("⚠️ Are you sure you want to delete ALL weightage configuration for this subject? This cannot be undone.", function() {
+        document.getElementById("deleteWeightageForm").submit();
+    });
+}
+
+// Show flash messages if any
+{% if success %}
+    openModal({{ success|tojson }});
+{% endif %}
+
+{% if error %}
+    openModal({{ error|tojson }});
+{% endif %}
+</script>
+
+{% endblock %}

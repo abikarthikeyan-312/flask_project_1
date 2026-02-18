@@ -1,0 +1,359 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: #f4f6f9;
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+}
+
+/* SIDEBAR */
+.sidebar {
+    width: 260px;
+    background: #f8f9fb;
+    border-right: 1px solid #e0e0e0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.sidebar h2 {
+    margin: 0 0 5px;
+}
+
+.user-info {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 20px;
+}
+
+.menu-item {
+    display: block;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #333;
+    font-size: 14px;
+}
+
+.menu-item:hover {
+    background: #e9ecef;
+}
+
+.menu-item.active {
+    background: #262730;
+    color: white;
+}
+
+.logout-btn {
+    display: block;
+    text-align: center;
+    padding: 10px;
+    background: #262730;
+    color: white;
+    border-radius: 10px;
+    text-decoration: none;
+}
+
+/* CONTENT */
+.content {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+}
+
+/* HEADINGS */
+h1 {
+    margin-top: 0;
+}
+
+/* GRID */
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+/* FORM (NARROW) + GRID (WIDE) LAYOUT */
+.grid-form-table {
+    display: grid;
+    grid-template-columns: 1fr 2.2fr;  /* 👈 key change */
+    gap: 20px;
+}
+/* CARD */
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* INPUTS */
+input, select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+/* BUTTONS */
+button {
+    width: 100%;
+    margin-top: 10px;
+    background: #262730;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+/* FLASH */
+.flash.success {
+    color: green;
+    margin-bottom: 10px;
+}
+.flash.danger {
+    color: red;
+    margin-bottom: 10px;
+}
+/* STREAMLIT-LIKE TABLE */
+.table-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    overflow: hidden;
+}
+
+.table-card table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table-card thead th {
+    background: #f8f9fb;
+    font-weight: 600;
+    border-bottom: 2px solid #dcdcdc;
+}
+
+
+.table-card th,
+.table-card td {
+    padding: 12px;
+    text-align: left;
+    font-size: 14px;
+
+    /* horizontal lines */
+    border-bottom: 1px solid #e0e0e0;
+
+    /* vertical lines */
+    border-right: 1px solid #e0e0e0;
+}
+
+/* remove extra right border on last column */
+.table-card th:last-child,
+.table-card td:last-child {
+    border-right: none;
+}
+
+
+.table-card th {
+    font-weight: 600;
+    color: #555;
+}
+/* TABLE WITH COLUMN LINES (Streamlit-like dataframe) */
+.table-lines th,
+.table-lines td {
+    border-right: 1px solid #e0e0e0;
+}
+
+.table-lines th:last-child,
+.table-lines td:last-child {
+    border-right: none;
+}
+
+/* CARD HEADER (Title + Search) */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.search-box input {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    width: 200px;
+    background: #f8f9fb;
+}
+
+/* DELETE SECTION */
+.delete-card {
+    max-width: 700px;
+}
+
+.delete-card button {
+    width: 100%;
+    margin-top: 12px;
+}
+
+/* OPTIONAL: future danger styling */
+.danger-btn {
+    background: #262730;
+}
+label {
+    display: block;
+    margin-top: 10px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+input:disabled,
+select:disabled {
+    background: #f1f1f1;
+    cursor: not-allowed;
+}
+/* SCROLLABLE GRID (Streamlit-like) */
+.table-scroll {
+    max-height: 460px;        /* ~10 rows */
+    overflow-y: auto;
+    border-radius: 12px;
+}
+
+/* Keep table header visible while scrolling */
+.table-scroll thead th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fb;
+    z-index: 1;
+}
+/* --- UPDATED MODAL STYLING --- */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6); /* Slightly darker overlay for better focus */
+    backdrop-filter: blur(3px);     /* Modern blur effect */
+    display: flex;
+    align-items: center;            /* Vertical centering */
+    justify-content: center;         /* Horizontal centering */
+    z-index: 2000;
+    padding: 20px;
+}
+
+.modal.hidden {
+    display: none !important;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    
+    /* FIX: This prevents the box from stretching across the screen */
+    width: 100%;
+    max-width: 450px; 
+    
+    text-align: center;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    border: none;
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Add a smooth entry animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Button spacing inside the modal */
+.modal-content button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* CONFIRM (primary action) */
+#modalConfirmBtn {
+    background: #262730;
+}
+
+/* CLOSE (secondary action) */
+.modal-content button:last-child {
+    background: #e9ecef;
+    color: #262730;
+    border: 1px solid #ccc;
+}
+.hidden {
+    display: none !important;
+}
+
+/* ================================
+   WEIGHTAGE GRID STYLING
+================================ */
+
+.weightage-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.weightage-table th,
+.weightage-table td {
+  border: 1px solid #dee2e6;   /* vertical + horizontal lines */
+  padding: 10px;
+  font-size: 14px;
+}
+
+/* Header styling */
+.weightage-table thead th {
+  background-color: #f8f9fa;
+  font-weight: 700;
+}
+
+/* Column highlighting */
+.weightage-table .sec-a {
+  background-color: #f0f7ff;
+}
+
+.weightage-table .sec-b {
+  background-color: #f9f2ff;
+}
+
+.weightage-table .sec-c {
+  background-color: #fff4e6;
+}
+
+.weightage-table .total-col {
+  background-color: #f1f3f5;
+  font-weight: 600;
+}
+
+/* Unit column */
+.weightage-table .unit-col {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+/* Totals row */
+.weightage-table tfoot .totals-row td {
+  background-color: #e9ecef;
+  font-weight: bold;
+  border-top: 2px solid #adb5bd;
+}
+
+/* Card polish */
+.card {
+  border-radius: 6px;
+}
+
+
+

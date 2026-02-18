@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% block title %}Manage Users{% endblock %}
+
+{% block content %}
+<h1>👥 User Management</h1>
+
+<div class="grid-form-table">
+    <div class="card">
+        <h3>Create New Account</h3>
+        <form method="POST" id="createUserForm">
+            <label>Username</label>
+            <input name="username" id="new_username" required pattern="^[a-zA-Z0-9_]+$" title="Only letters, numbers, and underscores" placeholder="e.g. IT_user">
+
+            <label>Password</label>
+            <div style="position: relative;">
+                <input type="password" name="password" id="passInput" placeholder="At least 6 characters" required>
+                <span onclick="togglePass()" style="position: absolute; right: 10px; top: 10px; cursor: pointer;">👁️</span>
+            </div>
+
+            <label>Role</label>
+            <select name="role" id="roleSelect" onchange="checkRole()">
+                <option value="staff">Staff</option>
+                <option value="admin">Administrator</option>
+            </select>
+
+            <div id="schoolSection" style="margin-top: 15px;">
+                <label>School Access</label>
+                <div class="table-card" style="max-height: 180px; overflow-y: auto; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
+                    {% for s in schools %}
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <input type="checkbox" name="school_ids" value="{{ s.id }}" id="chk_{{ s.id }}" style="width: auto; margin: 0;">
+                        <label for="chk_{{ s.id }}" style="margin: 0; font-weight: normal; cursor: pointer;">{{ s.name }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <button type="button" class="primary-btn" onclick="triggerCreateUser()">Create User</button>
+        </form>
+    </div>
+    
+    <div class="card">
+        <h3>Existing Users Overview</h3>
+        <div class="table-card table-scroll">
+            <table id="userTable">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>School Access</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr data-row-id="{{ u.id }}">
+                        <td>
+                            {{ u.username }}
+                            {% if u.id == session['user_id'] %}
+                                <span class="badge admin">You</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge {{ u.role }}">{{ u.role|capitalize }}</span></td>
+                        <td>
+                            {% if u.role == 'admin' %}
+                                <em>All Schools (System Admin)</em>
+                            {% else %}
+                                {{ u.schools|map(attribute='name')|join(', ') or 'None Assigned' }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>       
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <h3>User Actions</h3>
+    <label>Select User to Manage</label>
+    <select id="user_select" onchange="handleUserSelect()">
+        <option value="">-- Select a User --</option>
+        {% for u in users %}
+            <option value="{{ u.id }}" 
+                    data-username="{{ u.username }}" 
+                    data-role="{{ u.role }}"
+                    data-is-self="{{ 'true' if u.id == session['user_id'] else 'false' }}">
+                {{ u.username }} ({{ u.role|capitalize }})
+            </option>
+        {% endfor %}
+    </select>
+
+    <div id="actionButtons" style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+        <button id="btnReset" class="primary-btn" onclick="triggerReset()">
+            🔑 Reset Password
+        </button>
+        <button id="btnUpdateAccess" class="primary-btn" onclick="openEditAccessModal()">
+            🏫 Update School Access
+        </button>     
+        <button id="btnDelete" class="danger-btn" onclick="triggerUserDelete()">
+            🗑 Delete User
+        </button>
+    </div>
+</div>
+
+<div id="editAccessModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3>Update School Access</h3>
+        <p id="editAccessUserLabel" style="font-weight: bold; margin-bottom: 10px;"></p>
+        
+        <form id="editAccessForm">
+            <input type="hidden" id="editAccessUserId">
+            <label>Select Schools</label>
+            <div id="editCheckboxContainer" class="table-card" style="max-height: 200px; overflow-y: auto; padding: 15px; text-align: left; border: 1px solid #ccc;">
+                {% for s in schools %}
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <input type="checkbox" name="edit_school_ids" value="{{ s.id }}" id="edit_chk_{{ s.id }}" style="width: auto; margin: 0;">
+                    <label for="edit_chk_{{ s.id }}" style="margin: 0; font-weight: normal; cursor: pointer;">{{ s.name }}</label>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="primary-btn" onclick="saveAccessChanges()">Save Changes</button>
+                <button type="button" onclick="closeEditAccessModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>   
+
+<div id="resetPasswordModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 400px;">
+        <h3>🔑 Reset Password</h3>
+        <p>Enter the new password for <b id="resetUsernameDisplay"></b>:</p>
+        
+        <input type="password" id="newPasswordInput" placeholder="New Password" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px;">
+        <div style="margin-bottom: 15px;">
+            <input type="checkbox" id="showResetPass" onclick="toggleResetPassVisibility()"> 
+            <label for="showResetPass" style="font-weight: normal; display: inline;">Show Password</label>
+        </div>
+
+        <div style="text-align: right; margin-top: 20px;">
+            <button class="primary-btn" onclick="confirmPasswordReset()">Update Password</button>
+            <button onclick="closeResetModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<form id="resetForm" method="POST" action="{{ url_for('admin.admin_reset_password') }}" style="display:none;">
+    <input type="hidden" name="user_id" id="resetUserId">
+    <input type="hidden" name="new_password" id="resetNewPassword">
+</form>
+
+<div id="appModal" class="modal hidden">
+    <div class="modal-content">
+        <p id="modalMessage"></p>
+        <div style="text-align: right; margin-top: 20px;">
+            <button id="modalConfirmBtn" class="danger-btn hidden">Confirm</button>
+            <button onclick="closeModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* --- UI LOGIC --- */
+function togglePass() {
+    const p = document.getElementById("passInput");
+    p.type = p.type === "password" ? "text" : "password";
+}
+
+function checkRole() {
+    const role = document.getElementById("roleSelect").value;
+    document.getElementById("schoolSection").style.display = (role === 'admin') ? 'none' : 'block';
+}
+
+function handleUserSelect() {
+    // Buttons remain enabled to allow validation logic to run on click
+}
+
+/* --- ACTION LOGIC --- */
+
+function triggerCreateUser() {
+    const username = document.getElementById("new_username").value;
+    if(!username) {
+        openModal("Please enter a username.");
+        return;
+    }
+    openModal(`Confirm creating user account for "${username}"?`, "Confirm Action", function() {
+        document.getElementById("createUserForm").submit();
+    });
+}
+
+/* --- SCHOOL ACCESS LOGIC --- */
+function openEditAccessModal() {
+    const select = document.getElementById("user_select");
+    const userId = select.value;
+
+    if (!userId) {
+        openModal("Please select a user to update access.");
+        return;
+    }
+    
+    const role = select.options[select.selectedIndex].getAttribute("data-role");
+    if(role === 'admin') {
+        openModal("System Administrators have full access. You cannot limit their schools.");
+        return;
+    }
+
+    const username = select.options[select.selectedIndex].getAttribute("data-username");
+    document.getElementById("editAccessUserLabel").innerText = `Editing Access for: ${username}`;
+    document.getElementById("editAccessUserId").value = userId;
+
+    fetch(`/admin/users/${userId}/access`)
+        .then(res => res.json())
+        .then(data => {
+            const checkboxes = document.querySelectorAll('input[name="edit_school_ids"]');
+            checkboxes.forEach(chk => {
+                chk.checked = data.school_ids.includes(parseInt(chk.value));
+            });
+            document.getElementById("editAccessModal").classList.remove("hidden");
+        });
+}
+
+function closeEditAccessModal() {
+    document.getElementById("editAccessModal").classList.add("hidden");
+}
+
+function saveAccessChanges() {
+    const userId = document.getElementById("editAccessUserId").value;
+    const checkedBoxes = document.querySelectorAll('input[name="edit_school_ids"]:checked');
+    
+    const formData = new FormData();
+    formData.append("user_id", userId);
+    checkedBoxes.forEach(chk => formData.append("school_ids", chk.value));
+
+    fetch("{{ url_for('admin.update_access') }}", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const schoolNames = Array.from(checkedBoxes).map(chk => chk.nextElementSibling.innerText).join(", ");
+            const row = document.querySelector(`tr[data-row-id="${userId}"] td:last-child`);
+            if (row) row.innerText = schoolNames || "None Assigned";
+            
+            closeEditAccessModal();
+            openModal("User access updated successfully.");
+        } else {
+            openModal("Error: " + data.message);
+        }
+    });
+}
+
+/* --- PASSWORD RESET LOGIC (UPDATED WITH MODAL) --- */
+function triggerReset() {
+    const select = document.getElementById("user_select");
+    const userId = select.value;
+
+    if (!userId) {
+        openModal("Please select a user to reset password.");
+        return;
+    }
+
+    const username = select.options[select.selectedIndex].getAttribute("data-username");
+    
+    // Set up the modal
+    document.getElementById("resetUsernameDisplay").innerText = username;
+    document.getElementById("newPasswordInput").value = ""; // Clear previous input
+    document.getElementById("resetPasswordModal").classList.remove("hidden");
+}
+
+function closeResetModal() {
+    document.getElementById("resetPasswordModal").classList.add("hidden");
+}
+
+function toggleResetPassVisibility() {
+    const p = document.getElementById("newPasswordInput");
+    p.type = p.type === "password" ? "text" : "password";
+}
+
+function confirmPasswordReset() {
+    const select = document.getElementById("user_select");
+    const userId = select.value;
+    const newPass = document.getElementById("newPasswordInput").value;
+
+    if (!newPass || newPass.length < 6) {
+        alert("Password must be at least 6 characters."); // Simple alert for input validation inside modal
+        return;
+    }
+
+    // Submit the form
+    document.getElementById("resetUserId").value = userId;
+    document.getElementById("resetNewPassword").value = newPass;
+    document.getElementById("resetForm").submit();
+}
+
+/* --- DELETE USER LOGIC --- */
+function triggerUserDelete() {
+    const select = document.getElementById("user_select");
+    const userId = select.value;
+
+    if (!userId || userId === "") {
+        openModal("Action Required: Please select a user from the dropdown first.");
+        return;
+    }
+
+    const selectedOption = select.options[select.selectedIndex];
+    const username = selectedOption.getAttribute("data-username");
+    const isSelf = selectedOption.getAttribute("data-is-self") === "true";
+
+    if (isSelf) {
+        openModal("Security Restriction: You cannot delete your own administrative account.");
+        return;
+    }
+
+    openModal(`Permanently delete user "${username}"?`, "Confirm Deletion", function() {
+        const formData = new FormData();
+        formData.append("user_id", userId);
+
+        fetch("{{ url_for('admin.remove_user') }}", {
+            method: "POST",
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                select.remove(select.selectedIndex);
+                const tableRow = document.querySelector(`tr[data-row-id="${userId}"]`);
+                if (tableRow) tableRow.remove();
+                openModal("User deleted successfully.");
+            } else {
+                openModal("Error: " + data.message);
+            }
+        })
+        .catch(err => {
+            console.error("Delete Error:", err);
+            openModal("A server error occurred while deleting the user.");
+        });
+    });
+}
+
+/* --- GLOBAL MODAL ENGINE --- */
+function openModal(message, title = "Notification", confirmAction = null) {
+    document.getElementById("modalMessage").innerText = message;
+    document.getElementById("appModal").classList.remove("hidden");
+    
+    const confirmBtn = document.getElementById("modalConfirmBtn");
+    
+    if (confirmAction && typeof confirmAction === 'function') {
+        confirmBtn.classList.remove("hidden");
+        confirmBtn.onclick = function() {
+            confirmAction(); 
+            closeModal();
+        };
+    } else {
+        confirmBtn.classList.add("hidden");
+        confirmBtn.onclick = null;
+    }
+}
+
+function closeModal() { 
+    document.getElementById("appModal").classList.add("hidden"); 
+    document.getElementById("modalConfirmBtn").onclick = null; 
+}
+
+// Initial UI check
+checkRole();
+</script>
+{% endblock %}

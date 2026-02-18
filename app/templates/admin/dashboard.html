@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}System Analytics | Admin Panel{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    /* 1. Base Card Styling */
+    .card {
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        overflow: hidden;
+    }
+    
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    /* 2. Stat Cards Gradients */
+    .bg-gradient-blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; }
+    .bg-gradient-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+    .bg-gradient-purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; }
+
+    /* 3. Typography Tweaks */
+    .stat-label { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }
+    .stat-value { font-size: 2.25rem; font-weight: 800; line-height: 1.2; }
+
+    /* 4. Action Buttons Grid */
+    .action-btn {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 1.5rem; border-radius: 12px; background: white; text-decoration: none;
+        color: #1e293b; border: 1px solid #e2e8f0; transition: all 0.2s; height: 100%;
+        text-align: center;
+    }
+    .action-btn:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .action-icon { font-size: 1.75rem; margin-bottom: 0.5rem; display: block; }
+
+    /* 5. Charts Container */
+    .chart-container { position: relative; height: 80px; width: 80px; }
+    
+    /* 6. Custom Table Button Styling */
+    .btn-official {
+        color: #198754;
+        border-color: #198754;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .btn-official:hover { background-color: #198754; color: white; }
+    
+    .btn-student {
+        color: #6c757d;
+        border-color: #6c757d;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .btn-student:hover { background-color: #6c757d; color: white; }
+</style>
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-5 border-bottom pb-4">
+    <div class="mb-3 mb-md-0">
+        <h2 class="fw-bold text-dark m-0">📊 ADMIN PANEL</h2>
+        <p class="text-muted m-0">Real-time overview of the GNC COE Suite performance</p>
+    </div>
+    
+    <div class="system-status-pill bg-white shadow-sm border px-3 py-2 rounded-pill d-flex align-items-center">
+        <span class="pulse-indicator d-inline-block bg-success rounded-circle me-2" style="width: 10px; height: 10px;"></span>
+        <span class="fw-bold text-success small">System Live</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-5">
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('admin.manage_schools') }}" class="action-btn shadow-sm text-primary">
+            <span class="action-icon">🏫</span>
+            <span class="fw-bold">Schools</span>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('admin.manage_departments') }}" class="action-btn shadow-sm text-warning">
+            <span class="action-icon">🏢</span>
+            <span class="fw-bold">Departments</span>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('admin.manage_subjects') }}" class="action-btn shadow-sm text-info">
+            <span class="action-icon">📘</span>
+            <span class="fw-bold">Subjects</span>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('admin.manage_weightage') }}" class="action-btn shadow-sm text-success">
+            <span class="action-icon">⚖️</span>
+            <span class="fw-bold">Weightages</span>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('admin.manage_patterns') }}" class="action-btn shadow-sm text-danger">
+            <span class="action-icon">🔢</span>
+            <span class="fw-bold">Patterns</span>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('admin.all_generated_papers') }}" class="action-btn shadow-sm text-secondary">
+            <span class="action-icon">📄</span>
+            <span class="fw-bold">Generated Papers</span>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('admin.all_question_banks') }}" class="action-btn shadow-sm text-purple" style="color: #6f42c1;">
+            <span class="action-icon">📚</span>
+            <span class="fw-bold">Question Banks</span>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('admin.manage_users') }}" class="action-btn shadow-sm text-dark">
+            <span class="action-icon">👥</span>
+            <span class="fw-bold">Users</span>
+        </a>
+    </div>
+</div>
+
+<hr style="border: 0.2px solid #8d8b8b; margin: 20px 0;">
+
+<div class="row g-4 mb-5">
+    
+    <div class="col-md-4">
+        <div class="card h-100 p-4 bg-white">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <div class="stat-label text-muted">Paper Status</div>
+                    <div class="stat-value text-dark">{{ total_papers }}</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="paperDistributionChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between mt-auto pt-3 border-top">
+                <div class="text-center">
+                    <div class="h5 fw-bold mb-0 text-warning">{{ stats.get('DRAFT', 0) }}</div>
+                    <small class="text-muted fw-bold" style="font-size: 0.7rem;">DRAFTS</small>
+                </div>
+                <div class="text-center border-start border-end px-3">
+                    <div class="h5 fw-bold mb-0 text-info">{{ stats.get('UNDER_SCRUTINY', 0) }}</div>
+                    <small class="text-muted fw-bold" style="font-size: 0.7rem;">SCRUTINY</small>
+                </div>
+                <div class="text-center">
+                    <div class="h5 fw-bold mb-0 text-success">{{ stats.get('ACTIVE', 0) }}</div>
+                    <small class="text-muted fw-bold" style="font-size: 0.7rem;">ACTIVE</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+                <div>
+                    <h6 class="mb-0 fw-bold text-dark">🚀 RECENTLY ACTIVATED PAPERS</h6>
+                </div>
+                <span class="badge bg-light text-dark border">Last 5 Activities</span>
+            </div>
+            
+            <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                <table class="table table-borderless align-middle mb-0">
+                    <thead class="text-muted small text-uppercase sticky-top bg-white" style="border-bottom: 2px solid #f0f0f0; top: 0; z-index: 2;">
+                        <tr>
+                            <th class="ps-4 py-3">Paper Code</th>
+                            <th class="py-3">Subject</th>
+                            <th class="py-3">Date & Time</th>
+                            <th class="py-3 text-center">Official Document</th>
+                            <th class="py-3 text-end pe-4">Students Document</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for paper in recent_papers %}
+                        <tr style="border-bottom: 1px solid #f0f0f0;">
+                            <td class="ps-4 py-3">
+                                <span class="fw-bold text-dark">{{ paper.paper_code }}</span>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ paper.subject_version.subject.name }}</div>
+                                <div class="small text-muted">{{ paper.subject_version.subject.code }}</div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border fw-normal px-2 py-1">
+                                    {{ paper.last_modified_at.strftime('%d-%b-%Y %I:%M %p') }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('admin.download_official_paper', paper_id=paper.id) }}" class="btn btn-sm btn-outline-success btn-official">
+                                    🎓 Official
+                                </a>
+                            </td>
+                            <td class="text-end pe-4">
+                                <a href="{{ url_for('admin.download_student_paper', paper_id=paper.id) }}" class="btn btn-sm btn-outline-secondary btn-student">
+                                    🏢 Student
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5">
+                                <div class="text-muted mb-2">No active papers found in the system.</div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('paperDistributionChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Drafts', 'Scrutiny', 'Active'],
+                datasets: [{
+                    data: [
+                        {{ stats.get('DRAFT', 0) }}, 
+                        {{ stats.get('UNDER_SCRUTINY', 0) }}, 
+                        {{ stats.get('ACTIVE', 0) }}
+                    ],
+                    backgroundColor: ['#ffc107', '#0dcaf0', '#198754'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                animation: { duration: 1000, easing: 'easeOutQuart' }
+            }
+        });
+    });
+</script>
+{% endblock %}

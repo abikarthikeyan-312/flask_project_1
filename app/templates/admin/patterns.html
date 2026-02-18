@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Manage Patterns{% endblock %}
+
+{% block content %}
+<h1>📐 Manage Patterns</h1>
+
+<!-- ================= ADD PATTERN ================= -->
+<div class="card">
+    <h3>Add Pattern</h3>
+
+    <form method="POST" id="addPatternForm">
+
+        <label>Pattern Name</label>
+        <input name="name" required placeholder="e.g. Pattern_8">
+
+        <label>Total Marks</label>
+        <input type="number" name="total_marks" id="totalMarks" placeholder="Total marks will be calculated automatically" readonly>
+
+        <table class="grid-table">
+            <thead>
+                <tr>
+                    <th>Section</th>
+                    <th>Answer Count</th>
+                    <th>Total in Paper</th>
+                    <th>Marks / Q</th>
+                    <th>Total Marks</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody id="patternBody">
+                {% for sec in ["A","B","C"] %}
+                <tr>
+                    <td>Sec {{ sec }}</td>
+
+                    <td>
+                        <input type="number" name="count_{{ sec }}" min="0" value="0"
+                               onchange="recalculate()">
+                    </td>
+
+                    <td>
+                        <input type="number" name="total_{{ sec }}" min="0" value="0">
+                    </td>
+
+                    <td>
+                        <input type="number" name="marks_{{ sec }}" min="0" value="0"
+                               onchange="recalculate()">
+                    </td>
+
+                    <td class="section-total">0</td>
+
+                    <td>
+                        <input name="note_{{ sec }}" placeholder="Eg.Answer any TEN Questions">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <button type="button" class="primary-btn" onclick="confirmAddPattern()">
+            Save Pattern
+        </button>
+    </form>
+</div>
+
+<!-- ================= EXISTING PATTERNS ================= -->
+<div class="card">
+    <h3>Existing Patterns</h3>
+
+    <div class="table-card table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Total Marks</th>
+                    <th>Sections Breakdown</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pattern_views %}
+                <tr>
+                    <td>{{ p.name }}</td>
+                    <td>{{ p.total_marks }}</td>
+                    <td>
+                        <ul style="margin:0; padding-left:16px;">
+                            {% for s in p.sections %}
+                            <li>
+                                <strong>{{ s.section }}</strong> :
+                                {{ s.expression }}
+                                <small>({{ s.details }})</small><br>
+                                <em>{{ s.note }}</em>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" style="text-align:center;">
+                        No patterns created yet
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ================= DELETE PATTERN ================= -->
+<div class="card">
+    <h3>Delete Pattern</h3>
+
+    <form method="POST"
+          id="deletePatternForm"
+          action="{{ url_for('admin.remove_pattern') }}">
+
+        <label>Select Pattern to Delete</label>
+        <select name="pattern_name" id="deletePatternSelect" required>
+            <option value="">Select Pattern</option>
+            {% for p in pattern_views %}
+                <option value="{{ p.name }}">{{ p.name }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="button" class="danger-btn" onclick="confirmDeletePattern()">
+            🗑 Delete Pattern
+        </button>
+    </form>
+</div>
+
+<div id="appModal" class="modal hidden">
+    <div class="modal-content">
+        <p id="modalMessage"></p>
+        <div>
+            <button type="button" id="modalConfirmBtn" class="danger-btn hidden">
+                Confirm
+            </button>
+            <button type="button" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+
+
+
+<script>
+let modalConfirmAction = null;
+
+function openModal(message, confirmAction = null) {
+    const modal = document.getElementById("appModal");
+    const modalMessage = document.getElementById("modalMessage");
+    const confirmBtn = document.getElementById("modalConfirmBtn");
+
+    modalMessage.innerText = message;
+    modal.classList.remove("hidden");
+
+    modalConfirmAction = confirmAction;
+
+    if (confirmAction) {
+        confirmBtn.classList.remove("hidden");
+    } else {
+        confirmBtn.classList.add("hidden");
+    }
+}
+
+function closeModal() {
+    document.getElementById("appModal").classList.add("hidden");
+    modalConfirmAction = null;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const confirmBtn = document.getElementById("modalConfirmBtn");
+
+    confirmBtn.addEventListener("click", function () {
+
+        console.log("Confirm clicked");   // 👈 PUT IT RIGHT HERE
+
+        if (modalConfirmAction) {
+            const action = modalConfirmAction;
+            modalConfirmAction = null;
+            closeModal();
+            action();
+        } else {
+            console.log("No action found"); // optional extra debug
+        }
+    });
+});
+</script>
+
+
+
+
+
+<script>
+function confirmAddPattern() {
+    const name = document.querySelector("input[name='name']").value.trim();
+    const total = document.getElementById("totalMarks").value;
+
+    if (!name) {
+        openModal("Pattern name is required"); // ❌ no Confirm
+        return;
+    }
+
+    openModal(
+        `Create pattern "${name}" with total marks ${total}?`,
+        () => document.getElementById("addPatternForm").submit()
+    );
+}
+</script>
+
+
+<script>
+function confirmDeletePattern() {
+    const select = document.getElementById("deletePatternSelect");
+    const name = select.value;
+
+    if (!name) {
+        openModal("Please select a pattern to delete"); // ❌ no Confirm
+        return;
+    }
+
+    openModal(
+        `Are you sure you want to delete pattern "${name}"?`,
+        () => document.getElementById("deletePatternForm").submit()
+    );
+}
+</script>
+
+<script>
+/* ===========================
+   TOTAL MARKS
+=========================== */
+
+function recalculate() {
+    let total = 0;
+
+    document.querySelectorAll("#patternBody tr").forEach(row => {
+        const count = Number(row.querySelector("input[name^='count']").value);
+        const marks = Number(row.querySelector("input[name^='marks']").value);
+
+        const sectionTotal = count * marks;
+        row.querySelector(".section-total").innerText = sectionTotal;
+        total += sectionTotal;
+    });
+
+    document.getElementById("totalMarks").value = total;
+}
+</script>
+
+{% if success %}
+<script>
+openModal({{ success|tojson }});
+</script>
+{% endif %}
+
+{% if error %}
+<script>
+openModal({{ error|tojson }});
+</script>
+{% endif %}
+
+
+{% endblock %}

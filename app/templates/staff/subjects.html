@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-3 border-bottom pb-2">
+    <div>
+        <h3 class="fw-bold m-0">📚 My Subjects</h3>
+        <p class="text-muted small m-0">Manage and view subject details and patterns.</p>
+    </div>
+
+    <form class="d-flex gap-2 flex-wrap justify-content-end" method="GET">
+        
+        <select name="school_id" class="form-select form-select-sm bg-light fw-bold" style="width: 130px;" onchange="this.form.submit()">
+            <option value="">🏫 School</option>
+            {% for s in schools %}
+            <option value="{{ s.id }}" {% if sel_school == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="department_id" class="form-select form-select-sm bg-light fw-bold" style="width: 140px;" onchange="this.form.submit()">
+            <option value="">🏢 Dept</option>
+            {% for d in departments %}
+            <option value="{{ d.id }}" {% if sel_dept == d.id %}selected{% endif %}>{{ d.name }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="batch" class="form-select form-select-sm bg-light fw-bold" style="width: 90px;" onchange="this.form.submit()">
+            <option value="">📅 Batch</option>
+            {% for b in batches %}
+            <option value="{{ b }}" {% if sel_batch == b %}selected{% endif %}>{{ b }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="semester" class="form-select form-select-sm bg-light fw-bold" style="width: 80px;" onchange="this.form.submit()">
+            <option value="">Sem</option>
+            {% for s in semesters %}
+            <option value="{{ s }}" {% if sel_sem == s %}selected{% endif %}>Sem {{ s }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="subject_version_id" class="form-select form-select-sm bg-light fw-bold" style="width: 120px;" onchange="this.form.submit()">
+            <option value="">📘 Subject</option>
+            {% for sub in all_subjects %}
+            <option value="{{ sub.id }}" {% if sel_subject == sub.id %}selected{% endif %}>
+                {{ sub.subject.name }} ({{ sub.subject.code }})
+            </option>
+            {% endfor %}
+        </select>
+
+        {% if sel_school or sel_dept or sel_batch or sel_sem or sel_subject %}
+        <a href="{{ url_for('staff.my_subjects') }}" class="btn btn-sm btn-secondary fw-bold">✖</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="grid-table-form card shadow-sm border-0 d-flex flex-column" style="height: calc(100vh - 180px);">
+    
+    <div class="card-header bg-light p-2 border-bottom d-flex justify-content-between align-items-center">
+        <span class="fw-bold text-muted small ms-2">EXISTING SUBJECTS LIST</span>
+        <span class="badge bg-dark">Count: {{ subjects|length }}</span>
+    </div>
+
+    <div class="card-body p-0 d-flex flex-column" style="overflow: hidden;">
+        <div class="table-responsive flex-grow-1" style="overflow-y: auto;">
+            <table class="table table-bordered table-hover mb-0" style="font-size: 0.85rem; border-color: #dee2e6;">
+                <thead class="text-center align-middle bg-light" style="position: sticky; top: 0; z-index: 10;">
+                    <tr>
+                        <th style="width: 100px;">Code</th>
+                        <th style="min-width: 180px;">Subject Name</th>
+                        <th style="width: 60px;">Version</th>
+                        <th style="width: 60px;">Batch</th>
+                        <th style="width: 50px;">Semester</th>
+                        <th style="width: 150px;">Department</th>
+                        <th style="width: 150px;">Pattern Name</th>
+                        <th style="min-width: 250px;">Pattern Breakdown</th>
+                    </tr>
+                </thead>
+                <tbody class="align-middle bg-white">
+                    {% for s in subjects %}
+                    <tr>
+                        <td class="text-center fw-bold text-primary">{{ s.subject.code }}</td>
+                        
+                        <td class="text-start fw-bold text-dark">{{ s.subject.name }}</td>
+                        
+                        <td class="text-center"><span class="badge bg-secondary">{{ s.version }}</span></td>
+                        
+                        <td class="text-center fw-bold">{{ s.batch }}</td>
+                        
+                        <td class="text-center fw-bold">{{ s.semester }}</td>
+                        
+                        <td class="text-center text-muted small">{{ s.department.name }}</td>
+
+                        <td class="text-center">
+                            {% if s.pattern %}
+                                <span class="text-dark fw-bold">{{ s.pattern.name }}</span>
+                            {% else %}
+                                <span class="text-danger small fst-italic">Not Assigned</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-start">
+                            {% if s.pattern and s.pattern.structure_json and s.pattern.structure_json.sections %}
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for sec_key, sec_val in s.pattern.structure_json.sections.items() %}
+                                    <span class="badge bg-light text-dark border border-secondary" 
+                                          title="{{ sec_val.count }} Questions x {{ sec_val.marks }} Marks">
+                                        <strong>{{ sec_key }}</strong>: {{ sec_val.count }}x{{ sec_val.marks }}={{ sec_val.count|int * sec_val.marks|int }}
+                                    </span>
+                                    {% endfor %}
+                                    <span class="badge bg-success border border-success">Total: {{ s.pattern.total_marks }}</span>
+                                </div>
+                            {% else %}
+                                <span class="text-muted small">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted fw-bold">
+                            <div class="fs-4 mb-2">📭</div>
+                            No subjects found matching filters.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Grid Table Form specific styling */
+    .grid-table-form table {
+        border-collapse: separate; 
+        border-spacing: 0;
+    }
+    .grid-table-form th {
+        box-shadow: 0 1px 0 #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .grid-table-form td {
+        vertical-align: middle;
+        padding: 6px 10px;
+    }
+    /* Vertical Lines */
+    .table-bordered > :not(caption) > * > * {
+        border-width: 1px;
+    }
+</style>
+
+{% endblock %}
