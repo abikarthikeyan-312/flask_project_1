@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.env
+venv/
+instance/
+*.egg-info/
+*.sqlite3
+
+# Flask migrations
+migrations/__pycache__/
+
+# IDE files
+.vscode/
+.idea/
